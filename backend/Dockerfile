@@ -6,13 +6,13 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copiamos package.json y package-lock.json
-COPY backend/package*.json ./
+COPY package*.json ./
 
 # Instalamos dependencias
 RUN npm install
 
 # Copiamos todo el código del backend
-COPY backend/ ./
+COPY . ./
 
 # Construimos la aplicación de producción
 RUN npm run build
