@@ -1,0 +1,13 @@
+# Node
+node_modules
+dist
+
+# Env
+.env
+.env.local
+
+# Docker
+docker-compose.yml
+
+# Logs
+npm-debug.log*
