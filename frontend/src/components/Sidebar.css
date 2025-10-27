@@ -1,0 +1,70 @@
+/* frontend/src/components/Sidebar.css */
+.sidebar {
+    background: #2d3748;
+    color: white;
+    padding: 30px 20px;
+    height: calc(100vh - 70px);
+    /* Ajusta 70px a la altura de tu Header */
+    position: sticky;
+    /* O fixed si el layout lo requiere */
+    top: 70px;
+    /* Debajo del Header */
+    overflow-y: auto;
+    /* Scroll si el contenido es largo */
+}
+
+.sidebar-logo {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 40px;
+    color: #667eea;
+    padding-left: 10px;
+    /* Añadir padding */
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li {
+    margin-bottom: 10px;
+}
+
+.sidebar-menu li a {
+    /* Estilo base para NavLink */
+    display: block;
+    /* Para que ocupe todo el ancho */
+    padding: 15px 20px;
+    border-radius: 10px;
+    color: white;
+    /* Color del texto */
+    text-decoration: none;
+    /* Sin subrayado */
+    transition: background 0.3s, color 0.3s;
+    font-weight: 500;
+    /* Ligeramente más grueso */
+}
+
+.sidebar-menu li a:hover {
+    background: rgba(255, 255, 255, 0.1);
+    /* Fondo sutil al pasar el ratón */
+}
+
+/* Estilo para el NavLink activo */
+.sidebar-menu li a.active {
+    background: #667eea;
+    color: white;
+    /* Asegurar color blanco */
+    font-weight: 600;
+    /* Más grueso cuando está activo */
+}
+
+/* Media Query para pantallas pequeñas (opcional, podrías ocultarlo) */
+@media (max-width: 768px) {
+    .sidebar {
+        /* Podrías ocultarlo o hacerlo colapsable */
+        display: none;
+    }
+}

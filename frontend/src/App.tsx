@@ -1,16 +1,17 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+// 1. Agrupa TODOS los imports aquí al principio
 import Header from "./components/Header";
-// 1. Importa tus páginas
-// (Asegúrate de haber creado estos archivos en la carpeta 'frontend/src/pages/')
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
+import AboutPage from "./pages/AboutPage";
 import ProtectedRoute from "./components/ProtectedRoute";
-
-import { ToastContainer } from 'react-toastify'; 
-import 'react-toastify/dist/ReactToastify.css'; 
+import DashboardLayout from "./layouts/DashboardLayout";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function App() {
   return (
@@ -24,16 +25,24 @@ function App() {
         <Routes>
           {/* Rutas Públicas */}
           <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Rutas Privadas */}
-          <Route path="/dashboard" element={<ProtectedRoute />}>
+          {/* Rutas Privadas usando el Layout */}
+          <Route element={<ProtectedRoute />}>
             {" "}
-            {/* <-- Envolver con ProtectedRoute */}
-            <Route index element={<DashboardPage />} />{" "}
-            {/* <-- Ruta index dentro de la protegida */}
-            {/* Aquí puedes añadir más rutas protegidas, ej. /profile, /settings */}
+            {/* Protege todo el layout */}
+            <Route path="/dashboard" element={<DashboardLayout />}>
+              {" "}
+              {/* <-- Usa el Layout */}
+              {/* La ruta index se renderiza DENTRO del Outlet del Layout */}
+              <Route index element={<DashboardPage />} />
+              {/* Aquí añadirás otras rutas del dashboard: */}
+              {/* <Route path="vocational-test" element={<VocationalTestPage />} /> */}
+              {/* <Route path="settings" element={<SettingsPage />} /> */}
+              {/* ... etc ... */}
+            </Route>
           </Route>
 
           {/* Ruta para cualquier otra URL no encontrada */}

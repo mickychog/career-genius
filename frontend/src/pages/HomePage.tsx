@@ -1,6 +1,6 @@
 import React from "react";
-import "./HomePage.css"; // 1. Importaremos el CSS aquí
-import { useNavigate } from "react-router-dom";
+import "./HomePage.css";
+import { useNavigate, Link } from "react-router-dom";
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -25,9 +25,9 @@ const HomePage = () => {
           <button className="btn-primary" onClick={handleStartNow}>
             Comenzar Ahora
           </button>
-          <button className="btn-secondary">
+          <Link to="/about" className="btn-secondary">
             Conocer Más
-            </button>
+          </Link>
         </div>
       </div>
       <div className="features">

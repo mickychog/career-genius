@@ -1,0 +1,31 @@
+/* frontend/src/layouts/DashboardLayout.css */
+.dashboard-layout {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    /* Ancho fijo para sidebar, resto para contenido */
+    /* Altura total menos el header */
+    min-height: calc(100vh - 70px);
+    /* Ajusta 70px a la altura de tu Header */
+}
+
+.dashboard-main-content {
+    /* No necesita padding aquí, se aplica en cada página específica como DashboardPage */
+    background: #f7fafc;
+    /* Color de fondo general del área de contenido */
+    overflow-y: auto;
+    /* Permitir scroll si el contenido es muy largo */
+}
+
+/* Ocultar sidebar en pantallas pequeñas si decides hacerlo */
+@media (max-width: 768px) {
+    .dashboard-layout {
+        grid-template-columns: 1fr;
+        /* Columna única */
+    }
+
+    /* .sidebar se ocultará por su propio media query */
+    .dashboard-main-content {
+        min-height: calc(100vh - 70px);
+        /* Asegurar altura completa menos header */
+    }
+}
