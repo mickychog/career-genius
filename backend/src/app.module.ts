@@ -5,6 +5,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { VocationalTestModule } from './vocational-test/vocational-test.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { AuthModule } from './auth/auth.module';
     // Nuestros módulos de lógica
     UsersModule,
     AuthModule,
+    VocationalTestModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
