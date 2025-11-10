@@ -24,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Passport inyectará el 'payload' del JWT aquí
-    async validate(payload: { sub: string; email: string }) {
+    async validate(payload: { sub: string; email: string; role: string }) {
         // 'sub' es el ID del usuario
         const user = await this.usersService.findOneById(payload.sub);
 
@@ -32,6 +32,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             throw new UnauthorizedException('Token inválido');
         }
         // El objeto que retornamos aquí se inyectará en `req.user`
-        return user;
+        return {
+            sub: user._id.toString(), // Asegúrate de que sub sea el ID
+            email: user.email,
+            role: user.role
+        };
     }
 }

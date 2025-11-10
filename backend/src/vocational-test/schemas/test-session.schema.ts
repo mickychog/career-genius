@@ -35,6 +35,9 @@ export class TestSession extends Document {
 
     @Prop({ type: String }) // Podrías almacenar aquí el resultado (ej. "Analítico-Creativo")
     resultProfile?: string;
-}
 
+    @Prop({ type: String })
+    analysisReport?: string;
+}
 export const TestSessionSchema = SchemaFactory.createForClass(TestSession);
+TestSessionSchema.index({ user: 1, isCompleted: 1 }, { unique: true, partialFilterExpression: { isCompleted: false } });

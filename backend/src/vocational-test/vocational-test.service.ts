@@ -1,7 +1,7 @@
 // backend/src/vocational-test/vocational-test.service.ts
 import { Injectable, Logger, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose'; // Importa Types
+import { Model, Types, Document } from 'mongoose'; // Importa Types
 import { Question } from './schemas/question.schema';
 import { TestSession } from './schemas/test-session.schema';
 import { AiService } from '../ai/ai.service';
@@ -35,30 +35,32 @@ export class VocationalTestService {
     /**
      * Genera preguntas usando IA y las guarda en la BD, evitando duplicados simples.
      */
-    async generateAndStoreQuestions(count: number = 20): Promise<{ created: number }> {
-        this.logger.log(`Solicitando ${count} preguntas a la IA...`);
+    async generateAndStoreQuestions(count: number = 20): Promise<Question[]> { // <-- 1. Cambia el tipo de retorno
+        this.logger.log(`Solicitando ${count} preguntas a la IA en español...`);
         const generatedQuestions = await this.aiService.generateVocationalQuestions(count);
-        let createdCount = 0;
+
+        const newQuestions: Question[] = []; // <-- 2. Crea un array para guardar las preguntas
 
         for (const qData of generatedQuestions) {
-            // Verifica si una pregunta con texto similar ya existe (evita duplicados exactos)
+            // Verifica si una pregunta con texto similar ya existe
             const existingQuestion = await this.questionModel.findOne({ questionText: qData.question }).exec();
+
             if (!existingQuestion) {
                 const newQuestion = new this.questionModel({
                     questionText: qData.question,
                     options: qData.options,
-                    // Puedes intentar inferir categoría o dejarla por defecto
                     category: 'interest',
                 });
-                await newQuestion.save();
-                createdCount++;
+                const savedQuestion = await newQuestion.save(); // <-- 3. Guarda la pregunta en una variable
+                newQuestions.push(savedQuestion); // <-- 4. Añádela al array
                 this.logger.log(`Pregunta guardada: ${qData.question.substring(0, 50)}...`);
             } else {
                 this.logger.warn(`Pregunta duplicada omitida: ${qData.question.substring(0, 50)}...`);
             }
         }
-        this.logger.log(`Proceso completado. ${createdCount} nuevas preguntas creadas.`);
-        return { created: createdCount };
+
+        this.logger.log(`Proceso completado. ${newQuestions.length} nuevas preguntas creadas.`);
+        return newQuestions; // <-- 5. Devuelve el array de preguntas
     }
 
     /**
@@ -70,16 +72,18 @@ export class VocationalTestService {
         if (existingSession) {
             this.logger.log(`Usuario ${userId} ya tiene una sesión activa (${existingSession._id}). Reanudando...`);
             // Si quieres permitir reanudar, devuelve la sesión existente
-            // return this.getSessionWithQuestions(existingSession); // Necesitarías implementar esta función auxiliar
+            return this.getSessionWithQuestions(existingSession); // Necesitarías implementar esta función auxiliar
             // Opcionalmente, lanza un error si no permites reanudar
-            throw new ConflictException('Ya tienes un test vocacional en progreso.');
+            //throw new ConflictException('Ya tienes un test vocacional en progreso.');
         }
-
         // 2. Obtiene N preguntas aleatorias de la base de datos
+
         const randomQuestions = await this.questionModel.aggregate([
             { $sample: { size: this.TEST_QUESTION_COUNT } },
             { $project: { __v: 0, createdAt: 0, updatedAt: 0 } } // Excluye campos innecesarios
         ]).exec();
+
+        if (randomQuestions.length === 0) throw new NotFoundException('No hay preguntas disponibles para iniciar el test.');
 
         if (randomQuestions.length < this.TEST_QUESTION_COUNT) {
             this.logger.warn(`No hay suficientes preguntas en la BD (${randomQuestions.length}). Se necesitan ${this.TEST_QUESTION_COUNT}.`);
@@ -94,12 +98,32 @@ export class VocationalTestService {
             answers: [],
             isCompleted: false,
         });
-        await newSession.save();
-        this.logger.log(`Nueva sesión iniciada (${newSession._id}) para usuario ${userId} con ${randomQuestions.length} preguntas.`);
+        try{
+            await newSession.save();
+        this.logger.log(`Nueva sesión iniciada (${String(newSession._id)}) para usuario ${userId} con ${randomQuestions.length} preguntas.`);
+
+        } catch (error) {
+            // Si la segunda llamada de Strict Mode falla por el índice único (E11000)
+            if (error.code === 11000) {
+                this.logger.warn(`Intento de sesión duplicada (Strict Mode) para ${userId}. Reanudando.`);
+
+                // Buscamos la sesión que fue creada hace un instante por la primera llamada
+                const createdSession = await this.testSessionModel.findOne({ user: userId, isCompleted: false }).exec();
+
+                // Si la encontramos, la devolvemos para reanudar.
+                if (createdSession) {
+                    return this.getSessionWithQuestions(createdSession);
+                }
+            }
+            // Si es otro tipo de error (validación, etc.), lo relanzamos
+            throw error;
+        }
+
+        const createdSession = newSession as TestSession & Document;
 
         // 4. Formatea la respuesta para el frontend
         const responseQuestions: TestQuestionDto[] = randomQuestions.map(q => ({
-            _id: q._id.toString(),
+            _id: String(q._id),
             questionText: q.questionText,
             options: q.options,
             category: q.category
@@ -122,6 +146,10 @@ export class VocationalTestService {
         if (!session) {
             throw new NotFoundException(`Sesión de test con ID "${sessionId}" no encontrada.`);
         }
+
+        console.log('SUBMIT ANSWER: Session User ID:', session.user.toString());
+        console.log('SUBMIT ANSWER: Token User ID (userId):', userId);
+
         if (session.user.toString() !== userId) {
             throw new ForbiddenException('No tienes permiso para responder en esta sesión.');
         }
@@ -162,7 +190,10 @@ export class VocationalTestService {
      * Marca una sesión de test como completada y calcula el resultado (simple).
      */
     async finishTest(sessionId: string, userId: string): Promise<TestSession> {
-        const session = await this.testSessionModel.findById(sessionId).exec();
+
+        const session = await this.testSessionModel.findById(sessionId)
+            .populate('answers.question')
+            .exec() as TestSession & Document;
 
         if (!session) {
             throw new NotFoundException(`Sesión de test con ID "${sessionId}" no encontrada.`);
@@ -179,6 +210,44 @@ export class VocationalTestService {
             throw new BadRequestException(`Aún no has respondido todas las preguntas (${session.answers.length}/${session.questions.length}).`);
         }
 
+        // PREPARAR EL PROMPT CON LAS RESPUESTAS ---
+        const answersData = session.answers.map(answer => {
+            // Usamos 'any' porque el tipo de 'question' puede ser solo ObjectId o el Documento populado
+            const questionDoc = answer.question as any;
+            if (!questionDoc || !questionDoc.options || !Array.isArray(questionDoc.options) || questionDoc.options.length === 0) {
+                this.logger.error(`Pregunta faltante o inválida detectada en el análisis: ${answer.question}`);
+                // Puedes devolver un objeto vacío o saltar este mapeo, pero lanzaremos un error
+                // si la pregunta esencial falta.
+                throw new BadRequestException(`Faltan datos esenciales de la pregunta (${answer.question}).`);
+            }
+
+            // Asumiendo que las preguntas fueron populadas, extraemos el texto de la pregunta y la opción seleccionada.
+            return {
+                pregunta: questionDoc.questionText,
+                respuesta: questionDoc.options[answer.selectedOptionIndex],
+                indice: answer.selectedOptionIndex
+            };
+        });
+
+        // Convertir todo a una cadena legible para la IA
+        const answersText = JSON.stringify(answersData, null, 2);
+        this.logger.warn('JSON enviado a la IA:', answersText);
+
+        // --- 2. LLAMAR AL SERVICIO DE IA ---
+        try {
+            const analysisResult = await this.aiService.analyzeTestResults(answersText);
+
+            // 3. Almacenar el resultado detallado de la IA
+            session.resultProfile = analysisResult.profile; // Perfil resumido
+            session.analysisReport = analysisResult.report; // Reporte completo (debes añadir 'analysisReport' al esquema)
+
+        } catch (error) {
+            this.logger.error('Error al solicitar análisis a la IA:', error);
+            // Asigna un resultado de respaldo si la IA falla
+            session.resultProfile = 'Análisis Fallido';
+            session.analysisReport = 'El servicio de IA no pudo procesar las respuestas.';
+        }
+
         // Marca como completada
         session.isCompleted = true;
         session.completedAt = new Date();
@@ -189,28 +258,45 @@ export class VocationalTestService {
         const answerCount = session.answers.length;
         session.resultProfile = `Perfil Ejemplo (Basado en ${answerCount} respuestas)`;
 
-        this.logger.log(`Sesión ${sessionId} completada por usuario ${userId}. Resultado: ${session.resultProfile}`);
+        this.logger.log(`Sesión ${sessionId} completada y analizada.`);
 
         return session.save();
     }
 
-    /**
-     * (Función auxiliar potencial para reanudar test)
-     * Obtiene los detalles completos de las preguntas para una sesión existente.
-     */
-    /*
     private async getSessionWithQuestions(session: TestSession): Promise<StartTestResponse> {
         const populatedSession = await session.populate<{ questions: Question[] }>('questions');
+
         const responseQuestions: TestQuestionDto[] = populatedSession.questions.map(q => ({
-            _id: q._id.toString(),
+            _id: String(q._id), 
             questionText: q.questionText,
             options: q.options,
             category: q.category,
         }));
+
+        // CORRECCIÓN 3: Usamos String() para asegurar el tipo de _id
+        this.logger.log(`Sesión ${String(session._id)} reanudada con ${responseQuestions.length} preguntas.`);
+
         return {
-            sessionId: session._id.toString(),
+            // CORRECCIÓN 3 (2ª parte): Usamos String()
+            sessionId: String(session._id),
             questions: responseQuestions,
-        };
+        };   
     }
-    */
+
+    async getTestSessionResults(sessionId: string, userId: string): Promise<TestSession> {
+        const session = await this.testSessionModel.findById(sessionId).exec();
+
+        if (!session) {
+            throw new NotFoundException(`Sesión con ID ${sessionId} no encontrada.`);
+        }
+        if (session.user.toString() !== userId) {
+            throw new ForbiddenException('No tienes permiso para ver esta sesión.');
+        }
+        if (!session.isCompleted) {
+            throw new BadRequestException('El test aún no ha sido completado.');
+        }
+
+        // El resultado está en la sesión, solo la devolvemos
+        return session;
+    }
 }

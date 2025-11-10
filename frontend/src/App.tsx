@@ -12,6 +12,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import VocationalTestPage from "./pages/VocationalTestPage";
+import TestResultsPage from "./pages/TestResultPage";
 
 function App() {
   return (
@@ -38,6 +40,8 @@ function App() {
               {/* <-- Usa el Layout */}
               {/* La ruta index se renderiza DENTRO del Outlet del Layout */}
               <Route index element={<DashboardPage />} />
+              <Route path="vocational-test" element={<VocationalTestPage />} />
+              <Route path="results/:sessionId" element={<TestResultsPage />} />
               {/* Aquí añadirás otras rutas del dashboard: */}
               {/* <Route path="vocational-test" element={<VocationalTestPage />} /> */}
               {/* <Route path="settings" element={<SettingsPage />} /> */}

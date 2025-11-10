@@ -8,6 +8,12 @@ interface GeneratedQuestion {
     options: string[];
 }
 
+// Interfaz para el resultado de análisis
+interface AnalysisResult {
+    profile: string; // Ej. "Perfil: Analítico-Estratégico"
+    report: string;  // El reporte detallado
+}
+
 @Injectable()
 export class AiService {
     private genAI: GoogleGenerativeAI;
@@ -27,28 +33,28 @@ export class AiService {
             const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }); // Or 'gemini-1.5-pro-latest'
 
             const prompt = `
-Generate ${count} multiple-choice questions suitable for a vocational aptitude test for university students or young professionals. Focus on identifying preferences in work style, problem-solving approaches, collaborative tendencies, and areas of interest relevant to career choices. Each question must have exactly 4 distinct options.
+Genera ${count} preguntas de opción múltiple en español para un test de aptitud vocacional dirigido a estudiantes universitarios o jóvenes profesionales. Enfócate en identificar preferencias de estilo de trabajo, enfoques de resolución de problemas, tendencias colaborativas y áreas de interés relevantes para la elección de carrera. Cada pregunta debe tener exactamente 4 opciones distintas.
 
-Provide the output strictly in JSON format as an array of objects, where each object has a "question" (string) and an "options" (array of 4 strings) field. Do not include any introductory text, explanations, or markdown formatting outside the JSON array.
+Proporciona la salida estrictamente en formato JSON como un array de objetos, donde cada objeto tiene un campo "question" (string) y un campo "options" (array de 4 strings). No incluyas ningún texto introductorio, explicaciones o formato markdown fuera del array JSON.
 
-Example format:
+Ejemplo de formato:
 [
   {
-    "question": "When faced with a complex problem, you prefer to:",
+    "question": "Cuando te enfrentas a un problema complejo, prefieres:",
     "options": [
-      "Break it down into smaller, logical steps.",
-      "Brainstorm creative and unconventional solutions.",
-      "Collaborate with others to find a consensus.",
-      "Research existing solutions and adapt them."
+      "Desglosarlo en pasos lógicos y pequeños.",
+      "Lanzar ideas creativas y poco convencionales.",
+      "Colaborar con otros para encontrar un consenso.",
+      "Investigar soluciones existentes y adaptarlas."
     ]
   },
   {
-    "question": "Which work environment sounds most appealing?",
+    "question": "¿Qué ambiente de trabajo te parece más atractivo?",
     "options": [
-      "A fast-paced startup with constant change.",
-      "A large, established company with clear structure.",
-      "A research lab focused on innovation.",
-      "Working independently from anywhere."
+      "Una startup dinámica con cambios constantes.",
+      "Una gran empresa establecida con una estructura clara.",
+      "Un laboratorio de investigación enfocado en la innovación.",
+      "Trabajar de forma independiente desde cualquier lugar."
     ]
   }
 ]
@@ -59,7 +65,7 @@ Example format:
                 temperature: 0.7, // Un poco de creatividad
                 topK: 1,
                 topP: 1,
-                maxOutputTokens: 2048,
+                maxOutputTokens: 8192,
             };
             const safetySettings = [
                 { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
@@ -73,6 +79,8 @@ Example format:
                 generationConfig,
                 safetySettings,
             });
+
+            this.logger.warn('AI Prompt Feedback:', JSON.stringify(result.response.promptFeedback, null, 2));
 
             const response = result.response;
             const jsonText = response.text().trim();
@@ -100,5 +108,51 @@ Example format:
             this.logger.error('Error generando preguntas con IA:', error);
             throw new Error('No se pudieron generar las preguntas desde la IA.');
         }
+    }
+
+    async analyzeTestResults(answersJson: string): Promise < AnalysisResult > {
+    this.logger.log('Iniciando análisis vocacional con IA...');
+
+    const prompt = `
+Eres un analista de carrera experto. Analiza el siguiente conjunto de respuestas a un test vocacional y proporciona un reporte detallado.
+
+1. **Perfil Dominante (Resumen):** Genera un titular (string, máx. 5 palabras) que resuma el perfil profesional del usuario (ej. 'Pensador Lógico y Creativo').
+2. **Análisis de Aptitudes:** Basado en las respuestas, describe los puntos fuertes del usuario (ej. Liderazgo, Análisis de Datos, Creatividad).
+3. **Recomendaciones de Carrera:** Sugiere 3 carreras específicas (Científico de Datos, Diseñador UX, etc.) que coincidan con este perfil.
+4. **Áreas de Desarrollo (Gaps):** Identifica 2-3 áreas donde el usuario podría tener desafíos o necesite desarrollar habilidades.
+
+El formato de las respuestas proporcionadas es el siguiente JSON:
+${answersJson}
+
+Proporciona la salida estrictamente en formato JSON como un ÚNICO objeto con los campos: "profile" (string) y "report" (string). El campo "report" debe contener todo el análisis detallado (Punto 2, 3, 4) en formato Markdown bien estructurado (usando encabezados y listas).
+
+Ejemplo de formato de salida JSON:
+{
+  "profile": "Pensador Lógico y Colaborador",
+  "report": "## Análisis Detallado\\n### 🧠 Puntos Fuertes...\\n### 🚀 Recomendaciones..."
+}
+`;
+
+    try {
+        const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 8192 }, // Usa el límite alto
+        });
+
+        const jsonText = result.response.text().trim().replace(/^```json\s*|```$/g, '').trim();
+        const analysis: { profile: string, report: string } = JSON.parse(jsonText);
+
+if (!analysis.profile || !analysis.report) {
+    throw new Error('Respuesta de la IA incompleta o inválida.');
+}
+return analysis;
+
+        } catch (error) {
+        this.logger.error('Falla API Gemini en Análisis:', error.message || error);
+        this.logger.error('Verifica GEMINI_API_KEY y cuota.');
+    throw new Error('Fallo en la comunicación con el modelo de IA para análisis.');
+}
     }
 }

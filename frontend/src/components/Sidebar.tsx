@@ -15,7 +15,7 @@ const Sidebar = () => {
           </NavLink>
         </li>
         <li>
-          <NavLink to="/vocational-test">🎓 Test Vocacional</NavLink>
+          <NavLink to="/dashboard/vocational-test">🎓 Test Vocacional</NavLink>
         </li>
         <li>
           <NavLink to="/job-search">💼 Búsqueda de Empleo</NavLink>

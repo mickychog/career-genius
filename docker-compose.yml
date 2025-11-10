@@ -1,0 +1,41 @@
+version: '3.8'
+services:
+  
+  # Servicio del Backend (API)
+  api:
+    build:
+      context: ./backend # El contexto es la raíz
+      dockerfile: Dockerfile # Ruta al Dockerfile del backend
+    container_name: career-genius-backend
+    ports:
+      - "3000:3000" # Mapea puerto local 3000 al contenedor 3000
+    volumes:
+      - ./backend:/app # Sincroniza el código local con el contenedor
+      - /app/node_modules # No sobrescribas node_modules
+
+    environment:
+      # Pasa la variable de entorno para la BD
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NODE_ENV=development
+
+    command: npm run start:dev 
+
+  # Servicio del Frontend (Cliente)
+  client:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: career-genius-frontend
+    ports:
+      - "3001:3001" # Mapea puerto local 3001 al contenedor 3001
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Necesario para que el hot-reload funcione en Docker
+      - PORT=3001
+    depends_on:
+      - api # Asegura que el cliente inicie después que la api
