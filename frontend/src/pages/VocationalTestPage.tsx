@@ -1,11 +1,9 @@
-// frontend/src/pages/VocationalTestPage.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import apiClient from "../services/api";
-import "./VocationalTestPage.css"; // Crearemos este CSS
+import apiClient, { saveDemographics } from "../services/api";
+import "./VocationalTestPage.css";
 
-// Interfaz para la estructura de una pregunta
 interface TestQuestion {
   _id: string;
   questionText: string;
@@ -14,128 +12,223 @@ interface TestQuestion {
 }
 
 const VocationalTestPage = () => {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<TestQuestion[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 1. Iniciar el test al cargar la página
+  // Estados del Test
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<TestQuestion[]>([]);
+  const [currentStep, setCurrentStep] = useState(0); // 0: Edad, 1: Sexo, 2+: Preguntas
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Datos Demográficos
+  const [age, setAge] = useState<number | string>("");
+  const [gender, setGender] = useState<string | null>(null);
+
+  // Respuestas del Test
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(
+    null
+  );
+
+  // Cargar sesión e iniciar test al montar
   useEffect(() => {
-    const startTest = async () => {
+    const initTest = async () => {
       try {
         setIsLoading(true);
-        setError(null);
-        // Llama al endpoint del backend para iniciar
         const response = await apiClient.post("/vocational-test/start");
-
         setSessionId(response.data.sessionId);
         setQuestions(response.data.questions);
-        setCurrentQuestionIndex(0); // Empezar en la primera pregunta
+
+        // Opcional: Si la sesión ya tenía avance, podríamos calcular el currentStep aquí
+        // Pero por simplicidad, asumimos que si reanuda, empieza o revisa desde el principio
         setIsLoading(false);
       } catch (err: any) {
-        console.error("Error al iniciar el test:", err);
-        setError(
-          err.response?.data?.message ||
-            "No se pudo cargar el test. Intenta de nuevo."
-        );
-        toast.error("Error al cargar el test.");
+        console.error("Error iniciando test:", err);
+        toast.error("No se pudo iniciar el test. Intenta recargar.");
         setIsLoading(false);
       }
     };
+    initTest();
+  }, []);
 
-    startTest();
-  }, []); // El array vacío [] asegura que se ejecute solo una vez
+  // --- MANEJADORES DE NAVEGACIÓN ---
 
-  // 2. Lógica para manejar el "Siguiente" (próximo paso)
-  const handleNextQuestion = async () => {
-    if (selectedOption === null || !sessionId) return; // No hacer nada si no se ha seleccionado opción
+  const handleNext = async () => {
+    // 1. Lógica para Pregunta 1: EDAD
+    if (currentStep === 0) {
+      if (!age || Number(age) < 10 || Number(age) > 99) {
+        toast.warning("Por favor ingresa una edad válida.");
+        return;
+      }
+      setCurrentStep(1); // Pasar a Sexo
+      return;
+    }
 
-    const currentQuestion = questions[currentQuestionIndex];
+    // 2. Lógica para Pregunta 2: SEXO (y guardar demográficos)
+    if (currentStep === 1) {
+      if (!gender) {
+        toast.warning("Por favor selecciona una opción.");
+        return;
+      }
+
+      // Guardar demográficos en el backend antes de seguir
+      try {
+        if (sessionId) {
+          await saveDemographics(sessionId, Number(age), gender);
+        }
+        setCurrentStep(2); // Pasar a la primera pregunta real
+      } catch (error) {
+        console.error(error);
+        toast.error("Error guardando datos. Intenta de nuevo.");
+      }
+      return;
+    }
+
+    // 3. Lógica para Preguntas del Test (Paso 2 en adelante)
+    // El índice real en el array de questions es (currentStep - 2)
+    const questionIndex = currentStep - 2;
+
+    if (selectedOptionIndex === null) return;
 
     try {
-      // 2a. Enviar la respuesta actual al backend
+      // Enviar respuesta
       await apiClient.post(`/vocational-test/${sessionId}/answer`, {
-        questionId: currentQuestion._id,
-        selectedOptionIndex: selectedOption,
+        questionId: questions[questionIndex]._id,
+        selectedOptionIndex: selectedOptionIndex,
       });
 
-      setSelectedOption(null); // Resetea la opción seleccionada
+      setSelectedOptionIndex(null); // Resetear selección
 
-      // 2b. Comprobar si es la última pregunta
-      if (currentQuestionIndex < questions.length - 1) {
-        // Ir a la siguiente pregunta
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      // Si hay más preguntas, avanzar
+      if (questionIndex < questions.length - 1) {
+        setCurrentStep(currentStep + 1);
       } else {
-        // Es la última pregunta, finalizar el test
-        await handleFinishTest();
+        // Si era la última, finalizar
+        await handleFinish();
       }
     } catch (err: any) {
-      console.error("Error al enviar respuesta:", err);
-      toast.error(
-        err.response?.data?.message || "Error al guardar tu respuesta."
-      );
+      console.error("Error enviando respuesta:", err);
+      toast.error("Error al guardar respuesta.");
     }
   };
 
-  // 3. Lógica para finalizar el test
-  const handleFinishTest = async () => {
-    if (!sessionId) return;
+  const handleFinish = async () => {
     try {
-      const response = await apiClient.post(
-        `/vocational-test/${sessionId}/finish`
-      );
-      toast.success("¡Test completado con éxito! Generando resultados...");
-      // Redirige a una futura página de resultados (pasando el ID de sesión)
-      navigate(`/dashboard/results/${sessionId}`, {
-        state: { results: response.data },
-      });
-    } catch (err: any) {
-      console.error("Error al finalizar el test:", err);
-      toast.error(err.response?.data?.message || "Error al finalizar el test.");
+      await apiClient.post(`/vocational-test/${sessionId}/finish`);
+      toast.success("¡Test completado! Generando resultados...");
+      navigate(`/dashboard/results/${sessionId}`);
+    } catch (err) {
+      toast.error("Error al finalizar el test.");
     }
   };
 
-  // --- Renderizado ---
+  // --- RENDERIZADO ---
 
-  if (isLoading) {
+  if (isLoading)
     return (
       <div className="test-container">
-        <h2>Cargando tu test vocacional...</h2>
+        <h2>Preparando tu test...</h2>
       </div>
     );
-  }
 
-  if (error) {
+  // Calcular progreso (Total = 2 preguntas demográficas + N preguntas de API)
+  const totalSteps = 2 + questions.length;
+  const progressPercent = ((currentStep + 1) / totalSteps) * 100;
+
+  // Renderizar contenido dinámico según el paso
+  const renderContent = () => {
+    // PASO 0: EDAD
+    if (currentStep === 0) {
+      return (
+        <div className="question-card animate-fade-in">
+          <div className="question-number">Pregunta 1 de {totalSteps}</div>
+          <div className="question-text">
+            Para empezar, ¿cuántos años tienes?
+          </div>
+          <div className="demographic-input-container">
+            <input
+              type="number"
+              className="age-input"
+              placeholder="Ej. 17"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              min="15"
+              max="99"
+              autoFocus
+            />
+            <p className="hint-text">
+              Tu edad nos ayuda a sugerir si buscas formación universitaria o
+              técnica rápida.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // PASO 1: SEXO
+    if (currentStep === 1) {
+      return (
+        <div className="question-card animate-fade-in">
+          <div className="question-number">Pregunta 2 de {totalSteps}</div>
+          <div className="question-text">¿Con qué género te identificas?</div>
+          <div className="options">
+            {["Masculino", "Femenino", "Prefiero no decir"].map((option) => (
+              <div
+                key={option}
+                className={`option ${gender === option ? "selected" : ""}`}
+                onClick={() => setGender(option)}
+              >
+                {option}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // PASO 2+: PREGUNTAS REALES
+    const questionIndex = currentStep - 2;
+    const question = questions[questionIndex];
+
+    // Si por alguna razón no hay pregunta (error de índice), mostrar carga
+    if (!question) return <div>Cargando pregunta...</div>;
+
     return (
-      <div className="test-container">
-        <h2>Error: {error}</h2>
+      <div className="question-card animate-fade-in">
+        <div className="question-number">
+          Pregunta {currentStep + 1} de {totalSteps}
+        </div>
+        <div className="question-text">{question.questionText}</div>
+        <div className="options">
+          {question.options.map((option, index) => (
+            <div
+              key={index}
+              className={`option ${
+                selectedOptionIndex === index ? "selected" : ""
+              }`}
+              onClick={() => setSelectedOptionIndex(index)}
+            >
+              <span className="option-letter">
+                {String.fromCharCode(65 + index)}.
+              </span>{" "}
+              {option}
+            </div>
+          ))}
+        </div>
       </div>
     );
-  }
+  };
 
-  if (questions.length === 0) {
-    return (
-      <div className="test-container">
-        <h2>No hay preguntas disponibles.</h2>
-      </div>
-    );
-  }
-
-  // Obtiene la pregunta actual
-  const question = questions[currentQuestionIndex];
-  const progressPercent = ((currentQuestionIndex + 1) / questions.length) * 100;
-  const isLastQuestion = currentQuestionIndex === questions.length - 1;
+  // Validación del botón "Siguiente"
+  const isNextDisabled = () => {
+    if (currentStep === 0) return !age;
+    if (currentStep === 1) return !gender;
+    return selectedOptionIndex === null;
+  };
 
   return (
     <div className="test-container">
-      <h2
-        style={{ textAlign: "center", color: "#2d3748", marginBottom: "20px" }}
-      >
-        Test Vocacional
-      </h2>
+      <h2 className="test-title">Test Vocacional Bolivia 🇧🇴</h2>
+
       <div className="test-progress">
         <div
           className="test-progress-bar"
@@ -143,32 +236,17 @@ const VocationalTestPage = () => {
         ></div>
       </div>
 
-      <div className="question-card">
-        <div className="question-number">
-          Pregunta {currentQuestionIndex + 1} de {questions.length}
-        </div>
-        <div className="question-text">{question.questionText}</div>
-        <div className="options">
-          {question.options.map((option, index) => (
-            <div
-              key={index}
-              className={`option ${selectedOption === index ? "selected" : ""}`}
-              onClick={() => setSelectedOption(index)}
-            >
-              {option}
-            </div>
-          ))}
-        </div>
-      </div>
+      {renderContent()}
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div className="test-actions">
         <button
           className="btn-primary"
-          style={{ width: "auto" }}
-          onClick={handleNextQuestion}
-          disabled={selectedOption === null} // Deshabilita si no hay opción
+          onClick={handleNext}
+          disabled={isNextDisabled()}
         >
-          {isLastQuestion ? "Finalizar Test" : "Siguiente Pregunta →"}
+          {currentStep === totalSteps - 1
+            ? "Finalizar Test"
+            : "Siguiente Pregunta →"}
         </button>
       </div>
     </div>

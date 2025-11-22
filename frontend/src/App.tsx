@@ -13,7 +13,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import VocationalTestPage from "./pages/VocationalTestPage";
-import TestResultsPage from "./pages/TestResultPage";
+import TestResultsPage from "./pages/TestResultsPage";
 
 function App() {
   return (

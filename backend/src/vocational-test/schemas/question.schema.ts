@@ -4,14 +4,23 @@ import { Document } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Question extends Document {
-    @Prop({ required: true, trim: true })
+    @Prop({ required: true, trim: true, unique: true })
     questionText: string;
 
     @Prop({ type: [String], required: true, validate: [arrayLimit, '{PATH} debe tener exactamente 4 opciones'] })
     options: string[];
 
-    @Prop({ type: String, enum: ['workstyle', 'problem-solving', 'interest', 'collaboration'], default: 'interest' })
-    category: string; // Categoría opcional para análisis futuro
+    @Prop({
+        type: String,
+        required: true,
+        enum: [
+            'ESTILO_INTERES',      // Práctico vs Teórico vs Creativo
+            'AMBIENTE_LABORAL',    // Campo vs Oficina vs Social
+            'VALORES_MOTIVACION',  // Estabilidad vs Emprendimiento vs Impacto Social
+            'HABILIDADES_APRENDIZAJE' // Técnico vs Universitario
+        ]
+    })
+    category: string;
 }
 
 export const QuestionSchema = SchemaFactory.createForClass(Question);
