@@ -1,0 +1,225 @@
+.uni-search-container {
+    padding: 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.uni-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.uni-header h2 {
+    font-size: 2.2rem;
+    color: #2d3748;
+    margin-bottom: 10px;
+}
+
+.uni-header p {
+    color: #718096;
+    font-size: 1.1rem;
+}
+
+.career-highlight {
+    color: #667eea;
+    font-weight: 800;
+}
+
+/* Grid de Cards */
+.uni-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+.uni-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.uni-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(102, 126, 234, 0.2);
+    border-color: #667eea;
+}
+
+.uni-type-badge {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.badge-publica {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.badge-privada {
+    background: #bee3f8;
+    color: #2a4365;
+}
+
+.badge-tecnico {
+    background: #feebc8;
+    color: #744210;
+}
+
+.uni-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin-top: 15px;
+    margin-bottom: 5px;
+}
+
+.uni-city {
+    color: #718096;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+
+.uni-summary {
+    color: #4a5568;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+.btn-details {
+    width: 100%;
+    padding: 10px;
+    background: #edf2f7;
+    color: #4a5568;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.uni-card:hover .btn-details {
+    background: #667eea;
+    color: white;
+}
+
+/* Estado Vacío / Sin Test */
+.no-test-state {
+    text-align: center;
+    padding: 60px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+.no-test-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: white;
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 20px;
+    padding: 40px;
+    position: relative;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #718096;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #edf2f7;
+    padding: 12px 0;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #718096;
+}
+
+.detail-value {
+    font-weight: 600;
+    color: #2d3748;
+    text-align: right;
+}
+
+.detail-section {
+    margin-top: 25px;
+}
+
+.detail-section h3 {
+    font-size: 1.1rem;
+    color: #667eea;
+    margin-bottom: 10px;
+}
+
+.pensum-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pensum-tag {
+    background: #f7fafc;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    color: #4a5568;
+    border: 1px solid #e2e8f0;
+}
