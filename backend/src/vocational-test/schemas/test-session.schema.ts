@@ -15,11 +15,30 @@ class UserAnswer {
 }
 export const UserAnswerSchema = SchemaFactory.createForClass(UserAnswer);
 
+// --- NSubdocumento para Carreras Recomendadas ---
+@Schema({ _id: false })
+export class CareerRecommendation {
+    @Prop() name: string;
+    @Prop() duration: string;
+    @Prop() reason: string;
+}
+const CareerRecommendationSchema = SchemaFactory.createForClass(CareerRecommendation);
+// -----------------------------------------------------
+
+
 
 @Schema({ timestamps: true })
 export class TestSession extends Document {
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true, index: true })
     user: Types.ObjectId; // Referencia al usuario
+
+    // --- CAMPOS DEMOGRÁFICOS ---
+    @Prop({ type: Number })
+    userAge?: number;
+
+    @Prop({ type: String, enum: ['Masculino', 'Femenino', 'Prefiero no decir'] })
+    userGender?: string;
+    // ----------------------------------
 
     @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Question' }], required: true })
     questions: Types.ObjectId[]; // Array de IDs de las preguntas presentadas
@@ -38,6 +57,10 @@ export class TestSession extends Document {
 
     @Prop({ type: String })
     analysisReport?: string;
+
+    // --- CAMPO ESTRUCTURADO ---
+    @Prop({ type: [CareerRecommendationSchema], default: [] })
+    recommendedCareers: CareerRecommendation[];
 }
 export const TestSessionSchema = SchemaFactory.createForClass(TestSession);
 TestSessionSchema.index({ user: 1, isCompleted: 1 }, { unique: true, partialFilterExpression: { isCompleted: false } });

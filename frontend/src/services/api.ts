@@ -22,4 +22,10 @@ apiClient.interceptors.request.use(
     }
 );
 
+// --- Métodos Helper ---
+
+export const saveDemographics = async (sessionId: string, age: number, gender: string) => {
+    return apiClient.post(`/vocational-test/${sessionId}/demographics`, { age, gender });
+};
+
 export default apiClient;

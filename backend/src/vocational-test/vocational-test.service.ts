@@ -24,7 +24,8 @@ export interface StartTestResponse {
 @Injectable()
 export class VocationalTestService {
     private readonly logger = new Logger(VocationalTestService.name);
-    private readonly TEST_QUESTION_COUNT = 10; // Número de preguntas por test (ajustable)
+    private readonly QUESTIONS_PER_CATEGORY = 7;
+    //private readonly TEST_QUESTION_COUNT = 10; 
 
     constructor(
         @InjectModel(Question.name) private questionModel: Model<Question>,
@@ -32,35 +33,68 @@ export class VocationalTestService {
         private aiService: AiService,
     ) { }
 
-    /**
-     * Genera preguntas usando IA y las guarda en la BD, evitando duplicados simples.
-     */
-    async generateAndStoreQuestions(count: number = 20): Promise<Question[]> { // <-- 1. Cambia el tipo de retorno
-        this.logger.log(`Solicitando ${count} preguntas a la IA en español...`);
-        const generatedQuestions = await this.aiService.generateVocationalQuestions(count);
 
-        const newQuestions: Question[] = []; // <-- 2. Crea un array para guardar las preguntas
+    async generateAndStoreQuestions(totalGoal: number = 200): Promise<{ message: string, total: number }> {
+        const categories = [
+            'ESTILO_INTERES',
+            'AMBIENTE_LABORAL',
+            'VALORES_MOTIVACION',
+            'HABILIDADES_APRENDIZAJE'
+        ];
 
-        for (const qData of generatedQuestions) {
-            // Verifica si una pregunta con texto similar ya existe
-            const existingQuestion = await this.questionModel.findOne({ questionText: qData.question }).exec();
+        const goalPerCategory = Math.ceil(totalGoal / categories.length); // Ej: 200 / 4 = 50 por categoría
+        let totalCreated = 0;
 
-            if (!existingQuestion) {
-                const newQuestion = new this.questionModel({
-                    questionText: qData.question,
-                    options: qData.options,
-                    category: 'interest',
-                });
-                const savedQuestion = await newQuestion.save(); // <-- 3. Guarda la pregunta en una variable
-                newQuestions.push(savedQuestion); // <-- 4. Añádela al array
-                this.logger.log(`Pregunta guardada: ${qData.question.substring(0, 50)}...`);
-            } else {
-                this.logger.warn(`Pregunta duplicada omitida: ${qData.question.substring(0, 50)}...`);
+        this.logger.log(`=== INICIANDO GENERACIÓN MASIVA: Meta ${totalGoal} preguntas (${goalPerCategory} por cat.) ===`);
+
+        for (const category of categories) {
+            // 1. Contar cuántas tenemos ya de esta categoría
+            let currentCount = await this.questionModel.countDocuments({ category }).exec();
+
+            this.logger.log(`Categoría ${category}: Tiene ${currentCount}, Meta ${goalPerCategory}`);
+
+            while (currentCount < goalPerCategory) {
+                const missing = goalPerCategory - currentCount;
+                // Pedimos lotes pequeños (máx 10) para evitar timeouts de la IA
+                const batchSize = Math.min(missing, 10);
+
+                this.logger.log(`   >>> Generando lote de ${batchSize} preguntas para ${category}...`);
+
+                // Llamamos a la IA con la categoría específica
+                const newQuestionsData = await this.aiService.generateVocationalQuestions(batchSize, category);
+
+                if (newQuestionsData.length === 0) {
+                    this.logger.warn(`   !!! La IA no devolvió preguntas para ${category}. Reintentando...`);
+                    continue; // Reintenta el bucle
+                }
+
+                for (const qData of newQuestionsData) {
+                    // Verificación de duplicados (Texto exacto)
+                    const exists = await this.questionModel.exists({ questionText: qData.question });
+
+                    if (!exists) {
+                        await this.questionModel.create({
+                            questionText: qData.question,
+                            options: qData.options,
+                            category: category
+                        });
+                        totalCreated++;
+                        currentCount++; // Incrementamos contador local
+                    } else {
+                        this.logger.debug(`   Duplicado omitido: "${qData.question.substring(0, 20)}..."`);
+                    }
+                }
+
+                // Pequeña pausa para no saturar la API (opcional)
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 
-        this.logger.log(`Proceso completado. ${newQuestions.length} nuevas preguntas creadas.`);
-        return newQuestions; // <-- 5. Devuelve el array de preguntas
+        const finalCount = await this.questionModel.countDocuments().exec();
+        return {
+            message: `Proceso finalizado. Se crearon ${totalCreated} nuevas preguntas.`,
+            total: finalCount
+        };
     }
 
     /**
@@ -76,52 +110,79 @@ export class VocationalTestService {
             // Opcionalmente, lanza un error si no permites reanudar
             //throw new ConflictException('Ya tienes un test vocacional en progreso.');
         }
-        // 2. Obtiene N preguntas aleatorias de la base de datos
 
-        const randomQuestions = await this.questionModel.aggregate([
-            { $sample: { size: this.TEST_QUESTION_COUNT } },
-            { $project: { __v: 0, createdAt: 0, updatedAt: 0 } } // Excluye campos innecesarios
+        // 2. Obtiene preguntas ESTRATIFICADAS (7 de cada categoría)
+        // Usamos $facet para hacer 4 sub-consultas paralelas
+        const aggregation = await this.questionModel.aggregate([
+            {
+                $facet: {
+                    'interes': [
+                        { $match: { category: 'ESTILO_INTERES' } },
+                        { $sample: { size: this.QUESTIONS_PER_CATEGORY } }
+                    ],
+                    'ambiente': [
+                        { $match: { category: 'AMBIENTE_LABORAL' } },
+                        { $sample: { size: this.QUESTIONS_PER_CATEGORY } }
+                    ],
+                    'valores': [
+                        { $match: { category: 'VALORES_MOTIVACION' } },
+                        { $sample: { size: this.QUESTIONS_PER_CATEGORY } }
+                    ],
+                    'habilidades': [
+                        { $match: { category: 'HABILIDADES_APRENDIZAJE' } },
+                        { $sample: { size: this.QUESTIONS_PER_CATEGORY } }
+                    ]
+                }
+            },
+            {
+                // Combinamos los 4 arrays en uno solo
+                $project: {
+                    allQuestions: {
+                        $concatArrays: ['$interes', '$ambiente', '$valores', '$habilidades']
+                    }
+                }
+            }
         ]).exec();
 
-        if (randomQuestions.length === 0) throw new NotFoundException('No hay preguntas disponibles para iniciar el test.');
+        // El resultado de facet viene en un array con un solo objeto
+        const randomQuestions = aggregation[0].allQuestions;
 
-        if (randomQuestions.length < this.TEST_QUESTION_COUNT) {
-            this.logger.warn(`No hay suficientes preguntas en la BD (${randomQuestions.length}). Se necesitan ${this.TEST_QUESTION_COUNT}.`);
-            // Podrías generar más preguntas aquí si es necesario
-            if (randomQuestions.length === 0) throw new NotFoundException('No hay preguntas disponibles para iniciar el test.');
+        // Validación de seguridad: ¿Tenemos suficientes preguntas?
+        // Necesitamos 28 preguntas (7x4)
+        const totalNeeded = this.QUESTIONS_PER_CATEGORY * 4;
+        if (!randomQuestions || randomQuestions.length < totalNeeded) {
+            this.logger.warn(`Stock insuficiente. Se encontraron ${randomQuestions?.length || 0} preguntas de ${totalNeeded} necesarias.`);
+            throw new NotFoundException('No hay suficientes preguntas en la base de datos para generar un test equilibrado. Por favor contacta al administrador.');
         }
 
-        // 3. Crea la nueva sesión de test
+        // 3. Barajar (Shuffle) las preguntas para que no salgan en bloques por categoría
+        // Algoritmo de Fisher-Yates simple
+        for (let i = randomQuestions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [randomQuestions[i], randomQuestions[j]] = [randomQuestions[j], randomQuestions[i]];
+        }
+
+        // 4. Crea la nueva sesión de test (código igual que antes)
         const newSession = new this.testSessionModel({
             user: userId,
-            questions: randomQuestions.map(q => q._id), // Guarda solo los IDs
+            questions: randomQuestions.map(q => q._id),
             answers: [],
             isCompleted: false,
         });
-        try{
+
+        // ... (Manejo de duplicados try/catch igual que antes) ...
+        try {
             await newSession.save();
-        this.logger.log(`Nueva sesión iniciada (${String(newSession._id)}) para usuario ${userId} con ${randomQuestions.length} preguntas.`);
-
+            this.logger.log(`Nueva sesión iniciada (${String(newSession._id)}) con ${randomQuestions.length} preguntas estratificadas.`);
         } catch (error) {
-            // Si la segunda llamada de Strict Mode falla por el índice único (E11000)
             if (error.code === 11000) {
-                this.logger.warn(`Intento de sesión duplicada (Strict Mode) para ${userId}. Reanudando.`);
-
-                // Buscamos la sesión que fue creada hace un instante por la primera llamada
                 const createdSession = await this.testSessionModel.findOne({ user: userId, isCompleted: false }).exec();
-
-                // Si la encontramos, la devolvemos para reanudar.
-                if (createdSession) {
-                    return this.getSessionWithQuestions(createdSession);
-                }
+                if (createdSession) return this.getSessionWithQuestions(createdSession);
             }
-            // Si es otro tipo de error (validación, etc.), lo relanzamos
             throw error;
         }
 
-        const createdSession = newSession as TestSession & Document;
-
-        // 4. Formatea la respuesta para el frontend
+        // 5. Formatea la respuesta
         const responseQuestions: TestQuestionDto[] = randomQuestions.map(q => ({
             _id: String(q._id),
             questionText: q.questionText,
@@ -189,76 +250,43 @@ export class VocationalTestService {
     /**
      * Marca una sesión de test como completada y calcula el resultado (simple).
      */
+    
     async finishTest(sessionId: string, userId: string): Promise<TestSession> {
-
         const session = await this.testSessionModel.findById(sessionId)
             .populate('answers.question')
             .exec() as TestSession & Document;
 
-        if (!session) {
-            throw new NotFoundException(`Sesión de test con ID "${sessionId}" no encontrada.`);
-        }
-        if (session.user.toString() !== userId) {
-            throw new ForbiddenException('No tienes permiso para finalizar esta sesión.');
-        }
-        if (session.isCompleted) {
-            throw new BadRequestException('Este test ya ha sido completado.');
+        if (!session || session.user.toString() !== userId || session.isCompleted) {
+            throw new BadRequestException('Sesión inválida o ya completada.');
         }
 
-        // Verifica si todas las preguntas han sido respondidas (opcional pero recomendado)
-        if (session.answers.length !== session.questions.length) {
-            throw new BadRequestException(`Aún no has respondido todas las preguntas (${session.answers.length}/${session.questions.length}).`);
-        }
-
-        // PREPARAR EL PROMPT CON LAS RESPUESTAS ---
         const answersData = session.answers.map(answer => {
-            // Usamos 'any' porque el tipo de 'question' puede ser solo ObjectId o el Documento populado
             const questionDoc = answer.question as any;
-            if (!questionDoc || !questionDoc.options || !Array.isArray(questionDoc.options) || questionDoc.options.length === 0) {
-                this.logger.error(`Pregunta faltante o inválida detectada en el análisis: ${answer.question}`);
-                // Puedes devolver un objeto vacío o saltar este mapeo, pero lanzaremos un error
-                // si la pregunta esencial falta.
-                throw new BadRequestException(`Faltan datos esenciales de la pregunta (${answer.question}).`);
-            }
+            if (!questionDoc || !questionDoc.options) return null;
 
-            // Asumiendo que las preguntas fueron populadas, extraemos el texto de la pregunta y la opción seleccionada.
             return {
                 pregunta: questionDoc.questionText,
                 respuesta: questionDoc.options[answer.selectedOptionIndex],
-                indice: answer.selectedOptionIndex
             };
-        });
+        }).filter(item => item !== null);
 
-        // Convertir todo a una cadena legible para la IA
         const answersText = JSON.stringify(answersData, null, 2);
-        this.logger.warn('JSON enviado a la IA:', answersText);
 
-        // --- 2. LLAMAR AL SERVICIO DE IA ---
         try {
             const analysisResult = await this.aiService.analyzeTestResults(answersText);
 
-            // 3. Almacenar el resultado detallado de la IA
-            session.resultProfile = analysisResult.profile; // Perfil resumido
-            session.analysisReport = analysisResult.report; // Reporte completo (debes añadir 'analysisReport' al esquema)
+            session.resultProfile = analysisResult.profile;
+            session.analysisReport = analysisResult.report;
+            session.recommendedCareers = analysisResult.careers; // <--- GUARDAMOS LAS CARRERAS ESTRUCTURADAS
 
         } catch (error) {
-            this.logger.error('Error al solicitar análisis a la IA:', error);
-            // Asigna un resultado de respaldo si la IA falla
-            session.resultProfile = 'Análisis Fallido';
-            session.analysisReport = 'El servicio de IA no pudo procesar las respuestas.';
+            this.logger.error('Error IA:', error);
+            session.resultProfile = 'Análisis Pendiente';
+            session.analysisReport = 'Hubo un problema técnico. Por favor contacta soporte.';
         }
 
-        // Marca como completada
         session.isCompleted = true;
         session.completedAt = new Date();
-
-        // Lógica MUY BÁSICA para calcular un perfil (ejemplo simple)
-        // En una aplicación real, esto sería mucho más complejo, analizando
-        // las respuestas por categoría y usando quizás la IA o reglas predefinidas.
-        const answerCount = session.answers.length;
-        session.resultProfile = `Perfil Ejemplo (Basado en ${answerCount} respuestas)`;
-
-        this.logger.log(`Sesión ${sessionId} completada y analizada.`);
 
         return session.save();
     }
@@ -298,5 +326,18 @@ export class VocationalTestService {
 
         // El resultado está en la sesión, solo la devolvemos
         return session;
+    }
+
+    /**
+     * Actualiza datos demográficos de la sesión
+     */
+    async updateDemographics(sessionId: string, userId: string, age: number, gender: string): Promise<void> {
+        const session = await this.testSessionModel.findById(sessionId);
+        if (!session || session.user.toString() !== userId) {
+            throw new ForbiddenException('Sesión no válida.');
+        }
+        session.userAge = age;
+        session.userGender = gender;
+        await session.save();
     }
 }
