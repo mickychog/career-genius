@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { VocationalTestModule } from './vocational-test/vocational-test.module';
 import { AiModule } from './ai/ai.module';
+import { UniversitySearchModule } from './university-search/university-search.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AiModule } from './ai/ai.module';
     AuthModule,
     VocationalTestModule,
     AiModule,
+    UniversitySearchModule, 
   ],
   controllers: [AppController],
   providers: [AppService],

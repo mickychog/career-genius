@@ -18,6 +18,23 @@ export interface AnalysisResult {
         reason: string;
     }[];
 }
+
+export interface UniversityRecommendation {
+    name: string;
+    type: 'Pública' | 'Privada' | 'Instituto Técnico';
+    city: string;
+    summary: string;
+    details: {
+        years: string;
+        admissionType: string; // Examen, Ingreso libre, etc.
+        approxCost: string;    // Mensualidad o Matrícula
+        ranking: string;       // Percepción local o ranking internacional
+        employmentIndex: string; // Alto, Medio, Creciente
+        curriculumHighlights: string[]; // Materias clave (Pensum resumen)
+        description: string;   // Descripción larga de la IA
+    };
+}
+
 @Injectable()
 export class AiService {
     private genAI: GoogleGenerativeAI;
@@ -176,6 +193,53 @@ ${answersJson}
         } catch (error) {
             this.logger.error('Falla API Gemini en Análisis:', error.message || error);
             throw new Error('Fallo en la comunicación con el modelo de IA.');
+        }
+    }
+
+    async getUniversityRecommendations(careerName: string): Promise<UniversityRecommendation[]> {
+        this.logger.log(`Buscando universidades en Bolivia para: ${careerName}`);
+
+        const prompt = `
+Actúa como un experto en educación superior en **Bolivia**.
+El usuario quiere estudiar: **"${careerName}"**.
+
+Recomienda las 6 mejores opciones (Universidades Públicas, Privadas o Institutos Técnicos) en Bolivia (Ciudades capitales o provincias) para esta carrera específica.
+
+Provee información detallada y realista. Si la carrera es técnica, prioriza institutos. Si es académica, universidades.
+
+**Formato de Salida JSON (Array):**
+[
+  {
+    "name": "Nombre de la Universidad/Instituto",
+    "type": "Pública" | "Privada" | "Instituto Técnico",
+    "city": "Ciudad Principal",
+    "summary": "Breve resumen de prestigio (1 frase).",
+    "details": {
+      "years": "Duración (Ej. 5 años / 6 semestres)",
+      "admissionType": "Ej. Examen de Disp., Ingreso Libre, PSA",
+      "approxCost": "Ej. Gratuita (Solo matrícula), o Bs. 1500/mes",
+      "ranking": "Ej. Top 3 nacional, Muy reconocida en el sector",
+      "employmentIndex": "Ej. Alto, Medio, Competitivo",
+      "curriculumHighlights": ["Materia clave 1", "Materia clave 2", "Materia clave 3","Materia clave 4","Materia clave 5"],
+      "description": "Párrafo detallado sobre el enfoque de la carrera en esta institución."
+    }
+  }
+]
+`;
+
+        try {
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+            const result = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    maxOutputTokens: 8192,
+                    responseMimeType: "application/json"
+                },
+            });
+            return JSON.parse(result.response.text());
+        } catch (error) {
+            this.logger.error('Error buscando universidades:', error);
+            return [];
         }
     }
 }

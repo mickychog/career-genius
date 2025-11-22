@@ -14,6 +14,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import VocationalTestPage from "./pages/VocationalTestPage";
 import TestResultsPage from "./pages/TestResultsPage";
+import UniversitySearchPage from "./pages/UniversitySearchPage"; 
 
 function App() {
   return (
@@ -43,7 +44,7 @@ function App() {
               <Route path="vocational-test" element={<VocationalTestPage />} />
               <Route path="results/:sessionId" element={<TestResultsPage />} />
               {/* Aquí añadirás otras rutas del dashboard: */}
-              {/* <Route path="vocational-test" element={<VocationalTestPage />} /> */}
+              <Route path="university-search" element={<UniversitySearchPage />} />
               {/* <Route path="settings" element={<SettingsPage />} /> */}
               {/* ... etc ... */}
             </Route>
