@@ -21,12 +21,12 @@ export class VocationalTestController {
     @Post('generate-questions')
     // @UseGuards(JwtAuthGuard, RolesGuard) // Descomenta para proteger
     // @Roles(UserRole.ADMIN)              // Descomenta para proteger (requiere rol admin)
-    @ApiOperation({ summary: '(Admin) Genera y guarda nuevas preguntas vocacionales usando IA' })
-    @ApiQuery({ name: 'count', required: false, description: 'Número de preguntas a generar (default: 20)', type: Number })
+    @ApiOperation({ summary: '(Admin) Genera preguntas masivas por categorías para Bolivia' })
+    @ApiQuery({ name: 'target', required: false, description: 'Meta total de preguntas (default: 200)', type: Number })
     @ApiResponse({ status: 201, description: 'Preguntas generadas y guardadas.' })
-    generateQuestions(@Query('count', new DefaultValuePipe(20), ParseIntPipe) count: number) {
-        // No necesitas el userId aquí, es una tarea administrativa
-        return this.vocationalTestService.generateAndStoreQuestions(count);
+    generateQuestions(@Query('target', new DefaultValuePipe(200), ParseIntPipe) target: number) {
+        // Aumentamos el timeout del request si es posible, porque esto tardará un poco
+        return this.vocationalTestService.generateAndStoreQuestions(target);
     }
 
     /**
@@ -43,7 +43,21 @@ export class VocationalTestController {
         console.log('START TEST: User ID obtenido del token (req.user.sub):', userId);
         return this.vocationalTestService.startTest(userId);
     }
-
+    /**
+     * Guarda datos demográficos en la sesión
+     */
+    @UseGuards(JwtAuthGuard)
+    @Post(':sessionId/demographics')
+    @ApiOperation({ summary: 'Guarda edad y sexo en la sesión' })
+    async saveDemographics(
+        @Param('sessionId') sessionId: string,
+        @Req() req: { user: JwtUserPayload },
+        @Body() body: { age: number, gender: string }
+    ) {
+        const userId = req.user.sub;
+        await this.vocationalTestService.updateDemographics(sessionId, userId, body.age, body.gender);
+        return { message: 'Datos demográficos guardados' };
+    }
     /**
      * Guarda la respuesta a una pregunta de la sesión activa.
      */
@@ -55,7 +69,7 @@ export class VocationalTestController {
     @ApiResponse({ status: 400, description: 'Datos inválidos (índice, pregunta no pertenece).' })
     @ApiResponse({ status: 403, description: 'Usuario no autorizado para esta sesión.' })
     @ApiResponse({ status: 404, description: 'Sesión no encontrada.' })
-    
+
     submitAnswer(
         @Param('sessionId') sessionId: string,
         @Req() req: { user: JwtUserPayload },

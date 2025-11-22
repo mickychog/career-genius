@@ -3,17 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // Define una interfaz para la estructura esperada de la pregunta
-interface GeneratedQuestion {
+export interface GeneratedQuestion {
     question: string;
     options: string[];
 }
 
 // Interfaz para el resultado de análisis
-interface AnalysisResult {
-    profile: string; // Ej. "Perfil: Analítico-Estratégico"
-    report: string;  // El reporte detallado
+export interface AnalysisResult {
+    profile: string;
+    report: string; // Markdown general
+    careers: {      // Array estructurado para las Cards
+        name: string;
+        duration: string;
+        reason: string;
+    }[];
 }
-
 @Injectable()
 export class AiService {
     private genAI: GoogleGenerativeAI;
@@ -27,51 +31,59 @@ export class AiService {
         this.genAI = new GoogleGenerativeAI(apiKey);
     }
 
-    async generateVocationalQuestions(count: number = 5): Promise<GeneratedQuestion[]> {
+    /**
+     * Genera preguntas vocacionales basadas en una categoría específica y el contexto de Bolivia.
+     */
+    async generateVocationalQuestions(count: number, category: string): Promise<GeneratedQuestion[]> {
         try {
-            //const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }); // Or 'gemini-1.5-pro-latest'
+            // Usamos 'gemini-1.5-flash' que es rápido y estable
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
             const prompt = `
-Genera ${count} preguntas de opción múltiple en español para un test de aptitud vocacional dirigido a estudiantes universitarios o jóvenes profesionales. Enfócate en identificar preferencias de estilo de trabajo, enfoques de resolución de problemas, tendencias colaborativas y áreas de interés relevantes para la elección de carrera. Cada pregunta debe tener exactamente 4 opciones distintas.
+Genera ${count} preguntas de opción múltiple en español para un test vocacional enfocado en **BOLIVIA**.
+El público objetivo incluye: estudiantes de colegio, personas sin estudios formales y personas buscando cambiar de oficio.
 
-Proporciona la salida estrictamente en formato JSON como un array de objetos, donde cada objeto tiene un campo "question" (string) y un campo "options" (array de 4 strings). No incluyas ningún texto introductorio, explicaciones o formato markdown fuera del array JSON.
+**Categoría de las preguntas:** ${category}
 
-Ejemplo de formato:
+**Contexto Boliviano:**
+- Incluye situaciones realistas del mercado laboral local (comercio, agricultura, minería, tecnología, servicios, emprendimiento informal y formal).
+- Usa un lenguaje claro y accesible, evitando tecnicismos académicos complejos.
+- Las preguntas deben ayudar a discernir si la persona tiene aptitud o interés real en esa área.
+
+**Requisitos de Salida:**
+1. Formato estrictamente JSON (Array de objetos).
+2. Cada objeto debe tener: "question" (string) y "options" (array de 4 strings).
+3. Las opciones deben ser distintas y representar diferentes inclinaciones dentro de la categoría.
+4. NO incluyas bloques de código markdown (\`\`\`json), solo el JSON puro si es posible, o asegúrate de que sea fácil de limpiar.
+
+Ejemplo de formato JSON:
 [
   {
-    "question": "Cuando te enfrentas a un problema complejo, prefieres:",
+    "question": "Si tuvieras un capital semilla para un negocio en tu zona, ¿en qué lo invertirías?",
     "options": [
-      "Desglosarlo en pasos lógicos y pequeños.",
-      "Lanzar ideas creativas y poco convencionales.",
-      "Colaborar con otros para encontrar un consenso.",
-      "Investigar soluciones existentes y adaptarlas."
-    ]
-  },
-  {
-    "question": "¿Qué ambiente de trabajo te parece más atractivo?",
-    "options": [
-      "Una startup dinámica con cambios constantes.",
-      "Una gran empresa establecida con una estructura clara.",
-      "Un laboratorio de investigación enfocado en la innovación.",
-      "Trabajar de forma independiente desde cualquier lugar."
+      "En maquinaria para transformar materia prima (ej. taller de alimentos o madera).",
+      "En mercadería para abrir una tienda de abarrotes o ropa.",
+      "En equipos para ofrecer servicios digitales o técnicos.",
+      "En insumos para un proyecto de cultivo o crianza de animales."
     ]
   }
 ]
 `;
 
-            // Configuración de seguridad (ajusta según necesidad)
+            // Configuración de seguridad relajada para evitar bloqueos falsos positivos en generación masiva
             const generationConfig = {
-                temperature: 0.7, // Un poco de creatividad
-                topK: 1,
-                topP: 1,
+                temperature: 0.8, // Creatividad alta para variedad
+                topK: 40,
+                topP: 0.95,
                 maxOutputTokens: 8192,
+                responseMimeType: "application/json", 
             };
+
             const safetySettings = [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ];
 
             const result = await model.generateContent({
@@ -80,16 +92,16 @@ Ejemplo de formato:
                 safetySettings,
             });
 
-            this.logger.warn('AI Prompt Feedback:', JSON.stringify(result.response.promptFeedback, null, 2));
+            // Log para depuración en caso de fallos de seguridad
+            // this.logger.warn('AI Prompt Feedback:', JSON.stringify(result.response.promptFeedback, null, 2));
 
             const response = result.response;
             const jsonText = response.text().trim();
 
-            this.logger.log(`Respuesta cruda de IA: ${jsonText}`);
+            // this.logger.log(`Respuesta cruda de IA: ${jsonText.substring(0, 100)}...`);
 
-            // Intenta parsear la respuesta JSON
+            // Intenta parsear la respuesta JSON limpiando bloques markdown
             try {
-                // Limpia posibles ```json ... ``` si la IA los añade
                 const cleanedJson = jsonText.replace(/^```json\s*|```$/g, '').trim();
                 const questions: GeneratedQuestion[] = JSON.parse(cleanedJson);
 
@@ -97,7 +109,7 @@ Ejemplo de formato:
                 if (!Array.isArray(questions) || questions.some(q => !q.question || !Array.isArray(q.options) || q.options.length !== 4)) {
                     throw new Error('La respuesta de la IA no tiene el formato JSON esperado.');
                 }
-                this.logger.log(`Generadas ${questions.length} preguntas vocacionales.`);
+                this.logger.log(`Generadas ${questions.length} preguntas para la categoría ${category}.`);
                 return questions;
             } catch (parseError) {
                 this.logger.error(`Error parseando JSON de IA: ${parseError}. Respuesta cruda: ${jsonText}`);
@@ -105,54 +117,65 @@ Ejemplo de formato:
             }
 
         } catch (error) {
-            this.logger.error('Error generando preguntas con IA:', error);
-            throw new Error('No se pudieron generar las preguntas desde la IA.');
+            this.logger.error(`Error generando preguntas con IA para ${category}:`, error);
+            // Retornamos array vacío para no romper el proceso masivo en el servicio
+            return [];
         }
     }
 
-    async analyzeTestResults(answersJson: string): Promise < AnalysisResult > {
-    this.logger.log('Iniciando análisis vocacional con IA...');
+    /**
+     * Analiza y devuelve estructura para Cards.
+     */
+    async analyzeTestResults(answersJson: string): Promise<AnalysisResult> {
+        this.logger.log('Iniciando análisis vocacional con IA...');
 
-    const prompt = `
-Eres un analista de carrera experto. Analiza el siguiente conjunto de respuestas a un test vocacional y proporciona un reporte detallado.
+        const prompt = `
+Actúa como un orientador vocacional experto en Bolivia.
+Analiza mis respuestas y genera un perfil profesional.
 
-1. **Perfil Dominante (Resumen):** Genera un titular (string, máx. 5 palabras) que resuma el perfil profesional del usuario (ej. 'Pensador Lógico y Creativo').
-2. **Análisis de Aptitudes:** Basado en las respuestas, describe los puntos fuertes del usuario (ej. Liderazgo, Análisis de Datos, Creatividad).
-3. **Recomendaciones de Carrera:** Sugiere 3 carreras específicas (Científico de Datos, Diseñador UX, etc.) que coincidan con este perfil.
-4. **Áreas de Desarrollo (Gaps):** Identifica 2-3 áreas donde el usuario podría tener desafíos o necesite desarrollar habilidades.
+**Contexto:** Carreras reales en Bolivia (Universitarias o Técnicas).
 
-El formato de las respuestas proporcionadas es el siguiente JSON:
+**Entrada (Respuestas):**
 ${answersJson}
 
-Proporciona la salida estrictamente en formato JSON como un ÚNICO objeto con los campos: "profile" (string) y "report" (string). El campo "report" debe contener todo el análisis detallado (Punto 2, 3, 4) en formato Markdown bien estructurado (usando encabezados y listas).
-
-Ejemplo de formato de salida JSON:
+**Salida JSON (Estricta):**
 {
-  "profile": "Pensador Lógico y Colaborador",
-  "report": "## Análisis Detallado\\n### 🧠 Puntos Fuertes...\\n### 🚀 Recomendaciones..."
+  "profile": "Título corto del perfil (Ej. Innovador Tecnológico)",
+  "careers": [
+    {
+      "name": "Nombre de la Carrera (Ej. Ingeniería de Sistemas)",
+      "duration": "Duración (Ej. 5 años - UMSA)",
+      "reason": "Breve razón de por qué encaja conmigo."
+    },
+    { "name": "...", "duration": "...", "reason": "..." },
+    { "name": "...", "duration": "...", "reason": "..." }
+  ],
+  "report": "Texto en Markdown con: 1. Tus Superpoderes (puntos fuertes), 2. Tu Reto (áreas de mejora). Sé breve y motivador."
 }
 `;
 
-    try {
-        const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        try {
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 8192 }, // Usa el límite alto
-        });
+            const result = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    maxOutputTokens: 8192,
+                    responseMimeType: "application/json"
+                },
+            });
 
-        const jsonText = result.response.text().trim().replace(/^```json\s*|```$/g, '').trim();
-        const analysis: { profile: string, report: string } = JSON.parse(jsonText);
+            const jsonText = result.response.text();
+            const analysis: AnalysisResult = JSON.parse(jsonText);
 
-if (!analysis.profile || !analysis.report) {
-    throw new Error('Respuesta de la IA incompleta o inválida.');
-}
-return analysis;
+            if (!analysis.profile || !analysis.careers) {
+                throw new Error('Respuesta de la IA incompleta.');
+            }
+            return analysis;
 
         } catch (error) {
-        this.logger.error('Falla API Gemini en Análisis:', error.message || error);
-        this.logger.error('Verifica GEMINI_API_KEY y cuota.');
-    throw new Error('Fallo en la comunicación con el modelo de IA para análisis.');
-}
+            this.logger.error('Falla API Gemini en Análisis:', error.message || error);
+            throw new Error('Fallo en la comunicación con el modelo de IA.');
+        }
     }
 }

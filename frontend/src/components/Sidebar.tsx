@@ -1,35 +1,47 @@
-// frontend/src/components/Sidebar.tsx
 import React from "react";
-import { NavLink } from "react-router-dom"; // Usaremos NavLink para el estado activo
-import "./Sidebar.css"; // Crearemos este CSS
+import { NavLink } from "react-router-dom";
+import "./Sidebar.css";
 
 const Sidebar = () => {
   return (
     <div className="sidebar">
       <div className="sidebar-logo">🎯 CareerGenius</div>
       <ul className="sidebar-menu">
-        {/* NavLink añade la clase 'active' automáticamente */}
+        {/* Dashboard Principal */}
         <li>
           <NavLink to="/dashboard" end>
             🏠 Dashboard
           </NavLink>
         </li>
+
+        {/* El núcleo de la orientación */}
         <li>
           <NavLink to="/dashboard/vocational-test">🎓 Test Vocacional</NavLink>
         </li>
+
+        {/* Nueva Opción: Catálogo de Universidades */}
         <li>
-          <NavLink to="/job-search">💼 Búsqueda de Empleo</NavLink>
+          <NavLink to="/dashboard/university-search">
+            🏫 Búsqueda de Universidad
+          </NavLink>
         </li>
+
+        {/* Nueva Opción: Reemplazo del simulador por Aptitudes */}
         <li>
-          <NavLink to="/interview-simulator">🗣️ Simulador Entrevista</NavLink>
+          <NavLink to="/dashboard/aptitude-test">
+            🧠 Examen de Aptitudes
+          </NavLink>
         </li>
+
+        {/* Cursos Gratis y Capacitación */}
         <li>
-          <NavLink to="/skills-development">
+          <NavLink to="/dashboard/skills-development">
             🛠️ Desarrollo de Habilidades
           </NavLink>
         </li>
+
         <li>
-          <NavLink to="/settings">⚙️ Configuración</NavLink>
+          <NavLink to="/dashboard/settings">⚙️ Configuración</NavLink>
         </li>
       </ul>
     </div>
