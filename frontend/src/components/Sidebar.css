@@ -1,16 +1,15 @@
-/* frontend/src/components/Sidebar.css */
 .sidebar {
     background: #2d3748;
     color: white;
     padding: 30px 20px;
     height: calc(100vh - 70px);
-    /* Ajusta 70px a la altura de tu Header */
     position: sticky;
-    /* O fixed si el layout lo requiere */
     top: 70px;
-    /* Debajo del Header */
     overflow-y: auto;
-    /* Scroll si el contenido es largo */
+    transition: transform 0.3s ease-in-out;
+    /* Animación suave */
+    z-index: 100;
+    /* Siempre encima */
 }
 
 .sidebar-logo {
@@ -19,7 +18,15 @@
     margin-bottom: 40px;
     color: #667eea;
     padding-left: 10px;
-    /* Añadir padding */
+}
+
+.sidebar-header-mobile {
+    /* Por defecto en escritorio no mostramos header especial */
+}
+
+.close-menu-btn {
+    display: none;
+    /* Oculto en escritorio */
 }
 
 .sidebar-menu {
@@ -33,38 +40,68 @@
 }
 
 .sidebar-menu li a {
-    /* Estilo base para NavLink */
     display: block;
-    /* Para que ocupe todo el ancho */
     padding: 15px 20px;
     border-radius: 10px;
     color: white;
-    /* Color del texto */
     text-decoration: none;
-    /* Sin subrayado */
     transition: background 0.3s, color 0.3s;
     font-weight: 500;
-    /* Ligeramente más grueso */
 }
 
 .sidebar-menu li a:hover {
     background: rgba(255, 255, 255, 0.1);
-    /* Fondo sutil al pasar el ratón */
 }
 
-/* Estilo para el NavLink activo */
 .sidebar-menu li a.active {
     background: #667eea;
     color: white;
-    /* Asegurar color blanco */
     font-weight: 600;
-    /* Más grueso cuando está activo */
 }
 
-/* Media Query para pantallas pequeñas (opcional, podrías ocultarlo) */
+/* --- MODO CELULAR (Menos de 768px) --- */
 @media (max-width: 768px) {
     .sidebar {
-        /* Podrías ocultarlo o hacerlo colapsable */
-        display: none;
+        position: fixed;
+        /* Flotante sobre todo */
+        top: 0;
+        left: 0;
+        height: 100vh;
+        /* Ocupar toda la altura */
+        width: 280px;
+        /* Ancho del cajón */
+        transform: translateX(-100%);
+        /* OCULTO A LA IZQUIERDA POR DEFECTO */
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.2);
+        padding-top: 20px;
+    }
+
+    /* Clase que se añade cuando se abre el menú */
+    .sidebar.open {
+        transform: translateX(0);
+        /* DESLIZAR A LA VISTA */
+    }
+
+    .sidebar-header-mobile {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-right: 10px;
+    }
+
+    .sidebar-logo {
+        margin-bottom: 0;
+        /* Resetear margen desktop */
+    }
+
+    .close-menu-btn {
+        display: block;
+        background: none;
+        border: none;
+        color: white;
+        font-size: 2rem;
+        cursor: pointer;
+        line-height: 1;
     }
 }

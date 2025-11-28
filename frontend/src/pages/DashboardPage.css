@@ -3,6 +3,10 @@
     background: #f7fafc;
     min-height: calc(100vh - 70px);
     font-family: 'Segoe UI', sans-serif;
+    box-sizing: border-box;
+    width: 100%;
+    /* Importante: Permite scroll si es necesario pero evita desborde inicial */
+    overflow-x: hidden;
 }
 
 .dashboard-header {
@@ -10,6 +14,8 @@
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
 }
 
 .dashboard-header h2 {
@@ -23,18 +29,15 @@
     font-size: 1rem;
 }
 
-/* Layout Grid Principal */
+/* --- LAYOUT GRID CORREGIDO --- */
 .dashboard-layout-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr;
-    /* Columna ancha y columna estrecha */
+    /* USAR minmax(0, ...) ES CLAVE PARA EVITAR DESBORDAMIENTO */
+    grid-template-columns: 2fr minmax(0, 1fr);
     gap: 30px;
-}
-
-@media (max-width: 900px) {
-    .dashboard-layout-grid {
-        grid-template-columns: 1fr;
-    }
+    width: 100%;
+    max-width: 100%;
+    /* Asegura que no crezca más que el padre */
 }
 
 /* Estilos Generales de Card */
@@ -45,6 +48,9 @@
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     border: 1px solid #edf2f7;
     transition: transform 0.2s;
+    box-sizing: border-box;
+    /* Asegurar que el contenido interno no rompa la tarjeta */
+    overflow: hidden;
 }
 
 /* Tarjeta de Foco (Hero) */
@@ -58,6 +64,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .focus-value {
@@ -65,6 +73,9 @@
     font-weight: 700;
     color: #2d3748;
     margin: 10px 0;
+    /* Romper palabras largas para evitar desborde */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .status-badge {
@@ -89,7 +100,8 @@
 /* Grid de Mini Estadísticas */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    /* Ajuste responsive automático pero seguro */
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 20px;
     margin-bottom: 30px;
 }
@@ -110,6 +122,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 12px;
+    flex-shrink: 0;
 }
 
 .stat-value {
@@ -126,7 +139,12 @@
 }
 
 
-/* Carrusel de Sugerencias */
+/* --- CARRUSEL CORREGIDO --- */
+.suggestions-section {
+    /* Necesario para que el hijo respete el ancho en grid */
+    min-width: 0;
+}
+
 .suggestions-section h3 {
     color: #4a5568;
     margin-bottom: 15px;
@@ -137,12 +155,24 @@
     gap: 20px;
     overflow-x: auto;
     padding-bottom: 15px;
-    /* Ocultar scrollbar pero permitir scroll */
     scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    /* Truco CSS: forzar contención */
+    max-width: 85vw;
+    /* Fallback seguro para móviles */
+}
+
+/* En pantallas grandes, el max-width puede ser 100% del contenedor padre */
+@media (min-width: 900px) {
+    .suggestions-carousel {
+        max-width: 100%;
+    }
 }
 
 .suggestion-card {
     min-width: 220px;
+    max-width: 220px;
     background: white;
     border-radius: 12px;
     padding: 15px;
@@ -152,6 +182,7 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    flex-shrink: 0;
 }
 
 .suggestion-card:hover {
@@ -186,18 +217,16 @@
     align-items: center;
     justify-content: center;
     color: #667eea;
+    min-width: 150px;
 }
 
 
-/* Sidebar Derecha (Fechas y Progreso) */
+/* Sidebar Derecha */
 .circular-progress {
     width: 120px;
     height: 120px;
     border-radius: 50%;
-    background: conic-gradient(#667eea var(--progress), #e2e8f0 0deg);
-    /* Dinámico con JS o estático para demo */
     background: conic-gradient(#667eea 65%, #e2e8f0 0deg);
-    /* Demo al 65% */
     margin: 20px auto;
     display: flex;
     align-items: center;
@@ -275,6 +304,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    white-space: nowrap;
 }
 
 .btn-primary {
@@ -295,4 +325,61 @@
 
 .btn-secondary:hover {
     background: #eef2ff;
+}
+
+/* --- MEDIA QUERIES (MODO CELULAR) --- */
+
+@media (max-width: 900px) {
+    .dashboard-layout-grid {
+        /* Una sola columna en tablet/móvil, respetando minmax(0, 1fr) */
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .side-column {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+}
+
+/* Móvil: Ajustes finos */
+@media (max-width: 768px) {
+    .dashboard-page {
+        padding: 20px 15px;
+        /* Importante: permitir scroll vertical normal, prohibir horizontal */
+        overflow-x: hidden;
+    }
+
+    .dashboard-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+        text-align: center;
+    }
+
+    .dashboard-header .btn-primary {
+        width: 100% !important;
+    }
+
+    .side-column {
+        grid-template-columns: 1fr;
+    }
+
+    .focus-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .focus-value {
+        font-size: 1.5rem;
+    }
+
+    .focus-card .btn-secondary {
+        width: 100% !important;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
 }

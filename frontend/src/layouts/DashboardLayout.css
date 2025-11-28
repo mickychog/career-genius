@@ -1,31 +1,85 @@
-/* frontend/src/layouts/DashboardLayout.css */
 .dashboard-layout {
     display: grid;
     grid-template-columns: 250px 1fr;
-    /* Ancho fijo para sidebar, resto para contenido */
-    /* Altura total menos el header */
+    /* Escritorio: Sidebar fijo + Contenido */
     min-height: calc(100vh - 70px);
-    /* Ajusta 70px a la altura de tu Header */
+    position: relative;
+    width: 100%;
+    max-width: 100vw;
+    /* Asegura no exceder el viewport */
+    overflow-x: hidden;
+    /* Previene scroll horizontal no deseado */
 }
 
 .dashboard-main-content {
-    /* No necesita padding aquí, se aplica en cada página específica como DashboardPage */
     background: #f7fafc;
-    /* Color de fondo general del área de contenido */
-    overflow-y: auto;
-    /* Permitir scroll si el contenido es muy largo */
+    width: 100%;
+    /* Importante: Permite que el contenido fluya pero no desborde */
+    box-sizing: border-box;
 }
 
-/* Ocultar sidebar en pantallas pequeñas si decides hacerlo */
+/* Barra de navegación móvil */
+.mobile-nav-bar {
+    display: none;
+    background: white;
+    padding: 15px 20px;
+    align-items: center;
+    gap: 15px;
+    border-bottom: 1px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.hamburger-btn {
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    cursor: pointer;
+    color: #2d3748;
+    padding: 0;
+}
+
+.mobile-logo {
+    font-weight: 800;
+    color: #667eea;
+    font-size: 1.2rem;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 95;
+    backdrop-filter: blur(2px);
+}
+
+/* --- MODO CELULAR (Menos de 768px) --- */
 @media (max-width: 768px) {
     .dashboard-layout {
-        grid-template-columns: 1fr;
-        /* Columna única */
+        display: block;
+        /* Cambia Grid a Bloque para apilar verticalmente */
+        overflow-x: hidden;
+        /* Refuerzo anti-desborde */
     }
 
-    /* .sidebar se ocultará por su propio media query */
+    .mobile-nav-bar {
+        display: flex;
+    }
+
+    .sidebar-overlay {
+        display: block;
+    }
+
+    /* Asegurar que el contenido principal respete el ancho móvil */
     .dashboard-main-content {
-        min-height: calc(100vh - 70px);
-        /* Asegurar altura completa menos header */
+        max-width: 100%;
+        overflow-x: hidden;
     }
 }

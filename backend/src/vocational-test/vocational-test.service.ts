@@ -380,16 +380,28 @@ export class VocationalTestService {
 
     // --- HELPER DE ALEATORIZACIÓN ---
     private formatResponse(session: TestSession & Document, questionsDocs: any[]): StartTestResponse {
+        // 1. Mapeamos y Aleatorizamos Opciones
+        const mappedQuestions = questionsDocs.map(q => ({
+            _id: String(q._id),
+            questionText: q.questionText,
+            options: this.shuffleOptions(q.options),
+            type: q.type
+        }));
+
+        // 2. ORDENAR EXPLÍCITAMENTE POR FASE
+        // Esto garantiza que el frontend siempre reciba: GENERAL -> SPECIFIC -> CONFIRMATION
+        const phaseOrder = { 'GENERAL': 1, 'SPECIFIC': 2, 'CONFIRMATION': 3 };
+
+        mappedQuestions.sort((a, b) => {
+            const orderA = phaseOrder[a.type] || 99;
+            const orderB = phaseOrder[b.type] || 99;
+            return orderA - orderB;
+        });
+
         return {
             sessionId: String(session._id),
             currentPhase: session.currentPhase,
-            questions: questionsDocs.map(q => ({
-                _id: String(q._id),
-                questionText: q.questionText,
-                // AQUÍ ESTÁ LA MAGIA: Aleatorizamos las opciones
-                options: this.shuffleOptions(q.options),
-                type: q.type
-            }))
+            questions: mappedQuestions
         };
     }
 
