@@ -1,0 +1,280 @@
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import apiClient, { saveDemographics, getTestStatus } from "../services/api"; // Importar getTestStatus
+import "./VocationalTestPage.css";
+
+interface TestQuestion {
+  _id: string;
+  questionText: string;
+  options: string[];
+}
+
+interface TestStatus {
+  hasCompletedTest: boolean;
+  selectedCareer: string | null;
+  sessionId: string | null;
+}
+
+const VocationalTestPage = () => {
+  const navigate = useNavigate();
+
+  // Estado de Vista (Carga, Resumen o Test Activo)
+  const [viewMode, setViewMode] = useState<"loading" | "summary" | "test">(
+    "loading"
+  );
+  const [statusData, setStatusData] = useState<TestStatus | null>(null);
+
+  // Estados del Test
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<TestQuestion[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const [age, setAge] = useState<string>("");
+  const [gender, setGender] = useState<string | null>(null);
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(
+    null
+  );
+
+  // 1. Al cargar, verificamos el estado del usuario
+  useEffect(() => {
+    checkStatus();
+  }, []);
+
+  const checkStatus = async () => {
+    try {
+      const { data } = await getTestStatus();
+      if (data.hasCompletedTest && data.selectedCareer) {
+        setStatusData(data);
+        setViewMode("summary"); // Mostrar tarjeta de carrera guardada
+      } else {
+        startNewTestSession(); // Iniciar test directamente
+      }
+    } catch (error) {
+      console.error("Error verificando estado:", error);
+      startNewTestSession(); // Fallback al test
+    }
+  };
+
+  const startNewTestSession = async () => {
+    setViewMode("loading");
+    try {
+      const response = await apiClient.post("/vocational-test/start");
+      setSessionId(response.data.sessionId);
+      setQuestions(response.data.questions);
+      setViewMode("test"); // Cambiar a vista de preguntas
+
+      // Resetear estados locales
+      setCurrentStep(0);
+      setAge("");
+      setGender(null);
+      setSelectedOptionIndex(null);
+    } catch (err) {
+      toast.error("Error iniciando el test.");
+      setViewMode("test"); // Dejar en test aunque falle para reintentar
+    }
+  };
+
+  // --- MANEJADORES DEL TEST ---
+  const handleOptionClick = (index: number) => setSelectedOptionIndex(index);
+
+  const handleNext = async () => {
+    if (currentStep === 0) {
+      if (!age || Number(age) < 10)
+        return toast.warning("Ingresa una edad válida");
+      setCurrentStep(1);
+      return;
+    }
+    if (currentStep === 1) {
+      if (!gender) return toast.warning("Selecciona género");
+      try {
+        if (sessionId) await saveDemographics(sessionId, Number(age), gender);
+        setCurrentStep(2);
+      } catch (e) {
+        toast.error("Error conexión");
+      }
+      return;
+    }
+
+    const qIndex = currentStep - 2;
+    if (selectedOptionIndex === null)
+      return toast.warning("Selecciona una opción");
+
+    try {
+      await apiClient.post(`/vocational-test/${sessionId}/answer`, {
+        questionId: questions[qIndex]._id,
+        selectedOptionIndex: selectedOptionIndex,
+      });
+      setSelectedOptionIndex(null);
+
+      if (qIndex < questions.length - 1) {
+        setCurrentStep((prev) => prev + 1);
+      } else {
+        await handleFinish();
+      }
+    } catch (err) {
+      toast.error("Error guardando respuesta");
+    }
+  };
+
+  const handleFinish = async () => {
+    try {
+      toast.info("Analizando resultados...");
+      await apiClient.post(`/vocational-test/${sessionId}/finish`);
+      toast.success("¡Test finalizado!");
+      navigate(`/dashboard/results/${sessionId}`);
+    } catch (err) {
+      toast.error("Error al finalizar.");
+    }
+  };
+
+  // --- RENDERIZADO ---
+
+  if (viewMode === "loading")
+    return (
+      <div className="test-container">
+        <h2>Cargando...</h2>
+      </div>
+    );
+
+  // VISTA 1: RESUMEN DE CARRERA GUARDADA
+  if (viewMode === "summary" && statusData) {
+    return (
+      <div className="test-container">
+        <div
+          className="question-card animate-fade-in"
+          style={{ textAlign: "center" }}
+        >
+          <div style={{ fontSize: "4rem", marginBottom: "20px" }}>🎓</div>
+          <h2 style={{ color: "#2d3748", marginBottom: "10px" }}>
+            Ya tienes una carrera elegida
+          </h2>
+          <p style={{ color: "#718096", marginBottom: "30px" }}>
+            Actualmente tu perfil está enfocado en:
+          </p>
+
+          <div
+            style={{
+              background: "#eef2ff",
+              color: "#667eea",
+              padding: "20px",
+              borderRadius: "15px",
+              fontWeight: "bold",
+              fontSize: "1.5rem",
+              marginBottom: "40px",
+            }}
+          >
+            {statusData.selectedCareer}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "15px",
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              className="btn-secondary"
+              onClick={() =>
+                navigate(`/dashboard/results/${statusData.sessionId}`)
+              }
+            >
+              Ver Detalles Completos
+            </button>
+            <button
+              className="btn-primary"
+              onClick={startNewTestSession} // Sobreescribir test
+            >
+              Realizar Nuevo Test
+            </button>
+          </div>
+          <p
+            style={{ marginTop: "20px", fontSize: "0.85rem", color: "#a0aec0" }}
+          >
+            Nota: Al iniciar un nuevo test, se actualizará tu perfil vocacional
+            actual.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // VISTA 2: TEST ACTIVO (Igual que antes)
+  const totalSteps = 2 + questions.length;
+  const progress = ((currentStep + 1) / totalSteps) * 100;
+
+  return (
+    <div className="test-container">
+      <h2 className="test-title">Test Vocacional</h2>
+      <div className="test-progress">
+        <div
+          className="test-progress-bar"
+          style={{ width: `${progress}%` }}
+        ></div>
+      </div>
+
+      {currentStep === 0 && (
+        <div className="question-card animate-fade-in">
+          <h3>Edad</h3>
+          <input
+            type="number"
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+            className="age-input"
+            autoFocus
+          />
+        </div>
+      )}
+      {currentStep === 1 && (
+        <div className="question-card animate-fade-in">
+          <h3>Género</h3>
+          <div className="options">
+            {["Masculino", "Femenino", "Prefiero no decir"].map((g) => (
+              <div
+                key={g}
+                onClick={() => setGender(g)}
+                className={`option ${gender === g ? "selected" : ""}`}
+              >
+                {g}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {currentStep >= 2 && questions[currentStep - 2] && (
+        <div className="question-card animate-fade-in">
+          <div className="question-number">Pregunta {currentStep - 1}</div>
+          <div className="question-text">
+            {questions[currentStep - 2].questionText}
+          </div>
+          <div className="options">
+            {questions[currentStep - 2].options.map((opt, idx) => (
+              <div
+                key={idx}
+                className={`option ${
+                  selectedOptionIndex === idx ? "selected" : ""
+                }`}
+                onClick={() => handleOptionClick(idx)}
+              >
+                <span className="option-letter">
+                  {String.fromCharCode(65 + idx)}
+                </span>{" "}
+                {opt}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="test-actions">
+        <button className="btn-primary" onClick={handleNext}>
+          {currentStep === totalSteps - 1 ? "Finalizar" : "Siguiente"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default VocationalTestPage;

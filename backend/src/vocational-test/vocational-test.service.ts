@@ -1,31 +1,32 @@
-// backend/src/vocational-test/vocational-test.service.ts
-import { Injectable, Logger, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types, Document } from 'mongoose'; // Importa Types
-import { Question } from './schemas/question.schema';
-import { TestSession } from './schemas/test-session.schema';
+import { Model, Types, Document } from 'mongoose';
+import { Question, QuestionType, VocationalArea } from './schemas/question.schema';
+import { TestSession, UserAnswer } from './schemas/test-session.schema';
 import { AiService } from '../ai/ai.service';
-import { SubmitAnswerDto } from './dto/submit-answer.dto'; // Crearemos este DTO
+import { SubmitAnswerDto } from './dto/submit-answer.dto';
 
-// Define una interfaz para la estructura de la pregunta que devolveremos al frontend
 export interface TestQuestionDto {
     _id: string;
     questionText: string;
-    options: string[];
-    category?: string; // Incluimos categoría si la quieres mostrar
+    options: { text: string; originalIndex: number }[]; 
+    type: string;
 }
 
-// Define una interfaz para la respuesta al iniciar el test
 export interface StartTestResponse {
     sessionId: string;
     questions: TestQuestionDto[];
+    currentPhase: string;
 }
 
 @Injectable()
 export class VocationalTestService {
     private readonly logger = new Logger(VocationalTestService.name);
-    private readonly QUESTIONS_PER_CATEGORY = 7;
-    //private readonly TEST_QUESTION_COUNT = 10; 
+
+    // Configuración del TEST (Lo que ve el usuario)
+    private readonly QUESTIONS_PHASE_1_GENERAL = 5;
+    private readonly QUESTIONS_PHASE_2_SPECIFIC = 6;
+    private readonly QUESTIONS_PHASE_3_CONFIRMATION = 5;
 
     constructor(
         @InjectModel(Question.name) private questionModel: Model<Question>,
@@ -33,223 +34,269 @@ export class VocationalTestService {
         private aiService: AiService,
     ) { }
 
-
-    async generateAndStoreQuestions(totalGoal: number = 200): Promise<{ message: string, total: number }> {
-        const categories = [
-            'ESTILO_INTERES',
-            'AMBIENTE_LABORAL',
-            'VALORES_MOTIVACION',
-            'HABILIDADES_APRENDIZAJE'
-        ];
-
-        const goalPerCategory = Math.ceil(totalGoal / categories.length); // Ej: 200 / 4 = 50 por categoría
+    // --- 1. GENERACIÓN HÍBRIDA (ESTÁTICA + IA) ---
+    async generateAndStoreQuestions(targetTotal: number = 100): Promise<any> {
         let totalCreated = 0;
+        const areas = Object.values(VocationalArea).filter(a => a !== 'NINGUNA');
 
-        this.logger.log(`=== INICIANDO GENERACIÓN MASIVA: Meta ${totalGoal} preguntas (${goalPerCategory} por cat.) ===`);
-
-        for (const category of categories) {
-            // 1. Contar cuántas tenemos ya de esta categoría
-            let currentCount = await this.questionModel.countDocuments({ category }).exec();
-
-            this.logger.log(`Categoría ${category}: Tiene ${currentCount}, Meta ${goalPerCategory}`);
-
-            while (currentCount < goalPerCategory) {
-                const missing = goalPerCategory - currentCount;
-                // Pedimos lotes pequeños (máx 10) para evitar timeouts de la IA
-                const batchSize = Math.min(missing, 10);
-
-                this.logger.log(`   >>> Generando lote de ${batchSize} preguntas para ${category}...`);
-
-                // Llamamos a la IA con la categoría específica
-                const newQuestionsData = await this.aiService.generateVocationalQuestions(batchSize, category);
-
-                if (newQuestionsData.length === 0) {
-                    this.logger.warn(`   !!! La IA no devolvió preguntas para ${category}. Reintentando...`);
-                    continue; // Reintenta el bucle
-                }
-
-                for (const qData of newQuestionsData) {
-                    // Verificación de duplicados (Texto exacto)
-                    const exists = await this.questionModel.exists({ questionText: qData.question });
-
-                    if (!exists) {
-                        await this.questionModel.create({
-                            questionText: qData.question,
-                            options: qData.options,
-                            category: category
-                        });
-                        totalCreated++;
-                        currentCount++; // Incrementamos contador local
-                    } else {
-                        this.logger.debug(`   Duplicado omitido: "${qData.question.substring(0, 20)}..."`);
-                    }
-                }
-
-                // Pequeña pausa para no saturar la API (opcional)
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-
-        const finalCount = await this.questionModel.countDocuments().exec();
-        return {
-            message: `Proceso finalizado. Se crearon ${totalCreated} nuevas preguntas.`,
-            total: finalCount
-        };
-    }
-
-    /**
-     * Inicia una nueva sesión de test para un usuario.
-     */
-    async startTest(userId: string): Promise<StartTestResponse> {
-        // 1. Verifica si ya hay una sesión activa sin completar
-        const existingSession = await this.testSessionModel.findOne({ user: userId, isCompleted: false }).exec();
-        if (existingSession) {
-            this.logger.log(`Usuario ${userId} ya tiene una sesión activa (${existingSession._id}). Reanudando...`);
-            // Si quieres permitir reanudar, devuelve la sesión existente
-            return this.getSessionWithQuestions(existingSession); // Necesitarías implementar esta función auxiliar
-            // Opcionalmente, lanza un error si no permites reanudar
-            //throw new ConflictException('Ya tienes un test vocacional en progreso.');
-        }
-
-        // 2. Obtiene preguntas ESTRATIFICADAS (7 de cada categoría)
-        // Usamos $facet para hacer 4 sub-consultas paralelas
-        const aggregation = await this.questionModel.aggregate([
+        // A. INYECTAR PREGUNTAS GENERALES ESTÁTICAS (BALANCEADAS)
+        // Estas preguntas están diseñadas para no requerir conocimiento previo, solo preferencia.
+        const staticGeneralQuestions = [
             {
-                $facet: {
-                    'interes': [
-                        { $match: { category: 'ESTILO_INTERES' } },
-                        { $sample: { size: this.QUESTIONS_PER_CATEGORY } }
-                    ],
-                    'ambiente': [
-                        { $match: { category: 'AMBIENTE_LABORAL' } },
-                        { $sample: { size: this.QUESTIONS_PER_CATEGORY } }
-                    ],
-                    'valores': [
-                        { $match: { category: 'VALORES_MOTIVACION' } },
-                        { $sample: { size: this.QUESTIONS_PER_CATEGORY } }
-                    ],
-                    'habilidades': [
-                        { $match: { category: 'HABILIDADES_APRENDIZAJE' } },
-                        { $sample: { size: this.QUESTIONS_PER_CATEGORY } }
-                    ]
-                }
+                questionText: "¿Qué tipo de actividad disfrutarías más en un proyecto escolar?",
+                options: [
+                    { text: "Diseñar y construir el prototipo o maqueta física.", pointsTo: VocationalArea.TEC_INGENIERIA },
+                    { text: "Investigar sobre el funcionamiento del cuerpo o la naturaleza.", pointsTo: VocationalArea.SALUD_BIOLOGIA },
+                    { text: "Crear la parte visual, los dibujos o la música de fondo.", pointsTo: VocationalArea.ARTE_CREATIVIDAD },
+                    { text: "Organizar al equipo, presentar el proyecto y vender la idea.", pointsTo: VocationalArea.NEGOCIOS_ECONOMIA },
+                    { text: "Ninguna de las anteriores / No me interesa.", pointsTo: VocationalArea.NINGUNA }
+                ]
             },
             {
-                // Combinamos los 4 arrays en uno solo
-                $project: {
-                    allQuestions: {
-                        $concatArrays: ['$interes', '$ambiente', '$valores', '$habilidades']
+                questionText: "Si tuvieras una tarde libre para aprender algo nuevo en YouTube, ¿qué buscarías?",
+                options: [
+                    { text: "Documentales sobre historia, leyes o comportamiento humano.", pointsTo: VocationalArea.SOCIAL_HUMANIDADES },
+                    { text: "Tutoriales sobre tecnología, programación o cómo funcionan las máquinas.", pointsTo: VocationalArea.TEC_INGENIERIA },
+                    { text: "Videos sobre primeros auxilios, biología o cuidado animal.", pointsTo: VocationalArea.SALUD_BIOLOGIA },
+                    { text: "Consejos sobre inversiones, emprendimiento o marketing.", pointsTo: VocationalArea.NEGOCIOS_ECONOMIA },
+                    { text: "Ninguna de las anteriores.", pointsTo: VocationalArea.NINGUNA }
+                ]
+            },
+            {
+                questionText: "¿Qué problema te motiva más resolver en Bolivia?",
+                options: [
+                    { text: "La falta de infraestructura tecnológica e industrial.", pointsTo: VocationalArea.TEC_INGENIERIA },
+                    { text: "La desigualdad social y la falta de justicia.", pointsTo: VocationalArea.SOCIAL_HUMANIDADES },
+                    { text: "La falta de expresión cultural y espacios artísticos.", pointsTo: VocationalArea.ARTE_CREATIVIDAD },
+                    { text: "El estancamiento económico y la falta de empresas.", pointsTo: VocationalArea.NEGOCIOS_ECONOMIA },
+                    { text: "Ninguna de las anteriores.", pointsTo: VocationalArea.NINGUNA }
+                ]
+            },
+            {
+                questionText: "Imagina tu lugar de trabajo ideal. ¿Cómo es?",
+                options: [
+                    { text: "Un laboratorio, hospital o campo abierto cuidando seres vivos.", pointsTo: VocationalArea.SALUD_BIOLOGIA },
+                    { text: "Un estudio creativo, taller de arte o escenario.", pointsTo: VocationalArea.ARTE_CREATIVIDAD },
+                    { text: "Una oficina corporativa, banco o sala de reuniones.", pointsTo: VocationalArea.NEGOCIOS_ECONOMIA },
+                    { text: "Juzgados, escuelas o centros comunitarios ayudando gente.", pointsTo: VocationalArea.SOCIAL_HUMANIDADES },
+                    { text: "Ninguna de las anteriores.", pointsTo: VocationalArea.NINGUNA }
+                ]
+            },
+            {
+                questionText: "¿Qué materias te resultan más naturales o fáciles?",
+                options: [
+                    { text: "Matemáticas, Física o Computación.", pointsTo: VocationalArea.TEC_INGENIERIA },
+                    { text: "Biología, Química o Ciencias Naturales.", pointsTo: VocationalArea.SALUD_BIOLOGIA },
+                    { text: "Artes Plásticas, Música o Literatura.", pointsTo: VocationalArea.ARTE_CREATIVIDAD },
+                    { text: "Historia, Cívica, Psicología o Filosofía.", pointsTo: VocationalArea.SOCIAL_HUMANIDADES },
+                    { text: "Ninguna de las anteriores.", pointsTo: VocationalArea.NINGUNA }
+                ]
+            }
+        ];
+
+        this.logger.log(`Inyectando ${staticGeneralQuestions.length} preguntas GENERALES estáticas...`);
+        for (const q of staticGeneralQuestions) {
+            await this.createQuestionIfNew(q.questionText, q.options, QuestionType.GENERAL);
+            totalCreated++;
+        }
+
+        // B. GENERAR PREGUNTAS ESPECÍFICAS CON IA (Usando el Mapa de Bolivia)
+        const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+        // Calculamos cuántas necesitamos por área para llenar el stock
+        const targetPerArea = 10; // 5 Específicas + 5 Confirmación por área en el banco
+
+        for (const area of areas) {
+            // Fase 2: Específicas
+            this.logger.log(`Generando SPECIFIC para ${area} (Nivel Secundaria)...`);
+            try {
+                const specificQs = await this.aiService.generateVocationalQuestions(5, 'SPECIFIC', area);
+                if (specificQs && specificQs.length > 0) {
+                    for (const q of specificQs) {
+                        const text = q.question;
+                        // Asegurar 5ta opción
+                        const opts = [...q.options];
+                        if (opts.length === 4) opts.push("Ninguna de las anteriores");
+
+                        await this.createQuestionIfNew(text, opts, QuestionType.SPECIFIC, area as VocationalArea);
+                        totalCreated++;
                     }
                 }
-            }
+            } catch (e) { this.logger.error(e); }
+
+            await sleep(2000);
+
+            // Fase 3: Confirmación
+            this.logger.log(`Generando CONFIRMATION para ${area} (Sub-áreas)...`);
+            try {
+                const confirmQs = await this.aiService.generateVocationalQuestions(5, 'CONFIRMATION', area);
+                if (confirmQs && confirmQs.length > 0) {
+                    for (const q of confirmQs) {
+                        const text = q.question;
+                        const opts = [...q.options];
+                        if (opts.length === 4) opts.push("Ninguna de las anteriores");
+
+                        await this.createQuestionIfNew(text, opts, QuestionType.CONFIRMATION, area as VocationalArea);
+                        totalCreated++;
+                    }
+                }
+            } catch (e) { this.logger.error(e); }
+
+            await sleep(2000);
+        }
+
+        return { message: `Base de datos actualizada. Total procesado: ${totalCreated}` };
+    }
+
+    private async createQuestionIfNew(text: string, options: any[], type: QuestionType, area: VocationalArea = VocationalArea.NINGUNA) {
+        const exists = await this.questionModel.exists({ questionText: text });
+        if (!exists) {
+            await this.questionModel.create({ questionText: text, options, type, area });
+        }
+    }
+
+    // --- 2. INICIAR TEST ---
+    async startTest(userId: string): Promise<StartTestResponse> {
+        const existingSession = await this.testSessionModel.findOne({ user: userId, isCompleted: false }).exec();
+        if (existingSession) return this.getSessionWithQuestions(existingSession as TestSession & Document);
+
+        // Obtener las 5 preguntas generales estáticas
+        const generalQuestions = await this.questionModel.aggregate([
+            { $match: { type: 'GENERAL' } },
+            { $sample: { size: this.QUESTIONS_PHASE_1_GENERAL } }
         ]).exec();
 
-        // El resultado de facet viene en un array con un solo objeto
-        const randomQuestions = aggregation[0].allQuestions;
-
-        // Validación de seguridad: ¿Tenemos suficientes preguntas?
-        // Necesitamos 28 preguntas (7x4)
-        const totalNeeded = this.QUESTIONS_PER_CATEGORY * 4;
-        if (!randomQuestions || randomQuestions.length < totalNeeded) {
-            this.logger.warn(`Stock insuficiente. Se encontraron ${randomQuestions?.length || 0} preguntas de ${totalNeeded} necesarias.`);
-            throw new NotFoundException('No hay suficientes preguntas en la base de datos para generar un test equilibrado. Por favor contacta al administrador.');
+        if (generalQuestions.length === 0) {
+            throw new NotFoundException('No hay preguntas generales. Ejecuta generate-questions.');
         }
 
-        // 3. Barajar (Shuffle) las preguntas para que no salgan en bloques por categoría
-        // Algoritmo de Fisher-Yates simple
-        for (let i = randomQuestions.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [randomQuestions[i], randomQuestions[j]] = [randomQuestions[j], randomQuestions[i]];
-        }
-
-        // 4. Crea la nueva sesión de test (código igual que antes)
         const newSession = new this.testSessionModel({
             user: userId,
-            questions: randomQuestions.map(q => q._id),
+            questions: generalQuestions.map(q => q._id),
             answers: [],
+            scores: {},
+            currentPhase: 'GENERAL',
             isCompleted: false,
         });
 
-        // ... (Manejo de duplicados try/catch igual que antes) ...
         try {
             await newSession.save();
-            this.logger.log(`Nueva sesión iniciada (${String(newSession._id)}) con ${randomQuestions.length} preguntas estratificadas.`);
-        } catch (error) {
+        } catch (error: any) {
             if (error.code === 11000) {
-                const createdSession = await this.testSessionModel.findOne({ user: userId, isCompleted: false }).exec();
-                if (createdSession) return this.getSessionWithQuestions(createdSession);
+                const created = await this.testSessionModel.findOne({ user: userId, isCompleted: false }).exec();
+                if (created) return this.getSessionWithQuestions(created as TestSession & Document);
             }
             throw error;
         }
+        return this.formatResponse(newSession as TestSession & Document, generalQuestions);
+    }
 
-        // 5. Formatea la respuesta
-        const responseQuestions: TestQuestionDto[] = randomQuestions.map(q => ({
-            _id: String(q._id),
-            questionText: q.questionText,
-            options: q.options,
-            category: q.category
-        }));
+    // --- 3. RESPONDER ---
+    async submitAnswer(sessionId: string, userId: string, dto: SubmitAnswerDto): Promise<any> {
+        const session = await this.testSessionModel.findById(sessionId).populate('questions').exec() as TestSession & Document;
+        if (!session || session.user.toString() !== userId) throw new ForbiddenException('Sesión inválida.');
 
-        return {
-            sessionId: String(newSession._id),
-            questions: responseQuestions,
+        const questionIdStr = dto.questionId;
+        const questionsArray = session.questions as unknown as (Question & Document)[];
+        const questionDoc = questionsArray.find(q => String(q._id) === questionIdStr);
+
+        if (!questionDoc) throw new BadRequestException('Pregunta no encontrada.');
+
+        const newAnswer: UserAnswer = {
+            question: new Types.ObjectId(questionIdStr) as any,
+            selectedOptionIndex: dto.selectedOptionIndex
         };
+
+        if (!session.scores) session.scores = new Map<string, number>();
+        if (!(session.scores instanceof Map)) session.scores = new Map(Object.entries(session.scores));
+
+        // Puntuación Inteligente
+        // Si es GENERAL: Suma puntos según el mapeo
+        if (questionDoc.type === QuestionType.GENERAL) {
+            const selectedOption = questionDoc.options[dto.selectedOptionIndex];
+            // Solo sumar si NO es la opción "Ninguna" (que no tiene pointsTo o es NINGUNA)
+            if (selectedOption && selectedOption.pointsTo && selectedOption.pointsTo !== 'NINGUNA') {
+                const area = selectedOption.pointsTo;
+                const currentScore = session.scores.get(area) || 0;
+                session.scores.set(area, currentScore + 1);
+            }
+        }
+        // Si es ESPECIFICA: Suma puntos al área de la pregunta
+        else if (questionDoc.type === QuestionType.SPECIFIC) {
+            // Si elige la opción 4 ("Ninguna"), NO sumamos puntos
+            // Asumimos que índices 0,1,2,3 son positivos, 4 es negativo/neutro
+            if (dto.selectedOptionIndex < 4) {
+                const area = questionDoc.area;
+                const currentScore = session.scores.get(area) || 0;
+                session.scores.set(area, currentScore + 1);
+            }
+        }
+
+        const existingIdx = session.answers.findIndex(a => a.question.toString() === questionIdStr);
+        if (existingIdx >= 0) session.answers[existingIdx] = newAnswer;
+        else session.answers.push(newAnswer);
+
+        let nextPhaseMsg: string | null = null;
+        let nextPhaseCode: string | null = null;
+
+        if (session.answers.length >= session.questions.length) {
+            session.depopulate('questions');
+
+            if (session.currentPhase === 'GENERAL') {
+                await this.transitionToSpecificPhase(session);
+                nextPhaseMsg = 'Analizando tus intereses...';
+                nextPhaseCode = 'SPECIFIC';
+            } else if (session.currentPhase === 'SPECIFIC') {
+                await this.transitionToConfirmationPhase(session);
+                nextPhaseMsg = 'Perfilando tu rol ideal...';
+                nextPhaseCode = 'CONFIRMATION';
+            } else if (session.currentPhase === 'CONFIRMATION') {
+                nextPhaseMsg = 'Test completado.';
+                nextPhaseCode = 'FINISHED';
+            }
+        }
+
+        await session.save();
+        if (nextPhaseCode) return { message: nextPhaseMsg, nextPhase: nextPhaseCode };
+        return { message: 'Respuesta guardada' };
     }
 
-    /**
-     * Guarda la respuesta de un usuario a una pregunta específica en una sesión.
-     */
-    async submitAnswer(sessionId: string, userId: string, submitAnswerDto: SubmitAnswerDto): Promise<TestSession> {
-        const { questionId, selectedOptionIndex } = submitAnswerDto;
+    private async transitionToSpecificPhase(session: TestSession & Document) {
+        const scoresArray = Array.from(session.scores.entries()).sort((a, b) => b[1] - a[1]);
+        // Tomamos las 2 áreas con más puntaje. Si hubo empate o ceros, tomamos defaults.
+        const topAreas = scoresArray.slice(0, 2).map(e => e[0]);
 
-        const session = await this.testSessionModel.findById(sessionId).exec();
+        // Fallbacks si el usuario puso "Ninguna" a todo
+        if (topAreas.length === 0) topAreas.push(VocationalArea.TEC_INGENIERIA);
+        if (topAreas.length === 1) topAreas.push(VocationalArea.NEGOCIOS_ECONOMIA); // Default popular
 
-        if (!session) {
-            throw new NotFoundException(`Sesión de test con ID "${sessionId}" no encontrada.`);
-        }
+        session.activeBranches = topAreas;
 
-        console.log('SUBMIT ANSWER: Session User ID:', session.user.toString());
-        console.log('SUBMIT ANSWER: Token User ID (userId):', userId);
+        // Buscamos preguntas: 3 de cada área top = 6 preguntas
+        const specificQuestions = await this.questionModel.aggregate([
+            { $match: { type: 'SPECIFIC', area: { $in: topAreas } } },
+            { $sample: { size: this.QUESTIONS_PHASE_2_SPECIFIC } }
+        ]).exec();
 
-        if (session.user.toString() !== userId) {
-            throw new ForbiddenException('No tienes permiso para responder en esta sesión.');
-        }
-        if (session.isCompleted) {
-            throw new BadRequestException('Este test ya ha sido completado.');
-        }
-
-        // Verifica que la pregunta pertenezca a esta sesión
-        const questionObjectId = new Types.ObjectId(questionId); // Convierte string a ObjectId
-        const questionInSession = session.questions.some(qId => qId.equals(questionObjectId));
-        if (!questionInSession) {
-            throw new BadRequestException(`La pregunta con ID "${questionId}" no pertenece a esta sesión.`);
-        }
-
-        // Valida el índice de la opción
-        if (selectedOptionIndex < 0 || selectedOptionIndex > 3) {
-            throw new BadRequestException('El índice de la opción seleccionada debe estar entre 0 y 3.');
-        }
-
-        // Busca si ya existe una respuesta para esta pregunta
-        const existingAnswerIndex = session.answers.findIndex(a => a.question.equals(questionObjectId));
-
-        if (existingAnswerIndex > -1) {
-            // Actualiza la respuesta existente
-            session.answers[existingAnswerIndex].selectedOptionIndex = selectedOptionIndex;
-            this.logger.log(`Respuesta actualizada para pregunta ${questionId} en sesión ${sessionId}.`);
-        } else {
-            // Añade la nueva respuesta
-            session.answers.push({ question: questionObjectId, selectedOptionIndex });
-            this.logger.log(`Respuesta guardada para pregunta ${questionId} en sesión ${sessionId}.`);
-        }
-
-        // Guarda la sesión actualizada
-        return session.save();
+        const newIds = specificQuestions.map(q => q._id);
+        session.questions.push(...newIds);
+        session.currentPhase = 'SPECIFIC';
     }
 
-    /**
-     * Marca una sesión de test como completada y calcula el resultado (simple).
-     */
+    private async transitionToConfirmationPhase(session: TestSession & Document) {
+        const scoresArray = Array.from(session.scores.entries()).sort((a, b) => b[1] - a[1]);
+        // El ganador absoluto
+        const winnerArea = scoresArray[0][0] || VocationalArea.TEC_INGENIERIA;
+
+        const confirmationQuestions = await this.questionModel.aggregate([
+            { $match: { type: 'CONFIRMATION', area: winnerArea } },
+            { $sample: { size: this.QUESTIONS_PHASE_3_CONFIRMATION } }
+        ]).exec();
+
+        const newIds = confirmationQuestions.map(q => q._id);
+        session.questions.push(...newIds);
+        session.currentPhase = 'CONFIRMATION';
+    }
     
     async finishTest(sessionId: string, userId: string): Promise<TestSession> {
         const session = await this.testSessionModel.findById(sessionId)
@@ -263,10 +310,10 @@ export class VocationalTestService {
         const answersData = session.answers.map(answer => {
             const questionDoc = answer.question as any;
             if (!questionDoc || !questionDoc.options) return null;
-
             return {
                 pregunta: questionDoc.questionText,
                 respuesta: questionDoc.options[answer.selectedOptionIndex],
+                fase: questionDoc.type
             };
         }).filter(item => item !== null);
 
@@ -274,70 +321,91 @@ export class VocationalTestService {
 
         try {
             const analysisResult = await this.aiService.analyzeTestResults(answersText);
-
             session.resultProfile = analysisResult.profile;
             session.analysisReport = analysisResult.report;
-            session.recommendedCareers = analysisResult.careers; // <--- GUARDAMOS LAS CARRERAS ESTRUCTURADAS
-
+            if (analysisResult.careers && analysisResult.careers.length > 0) {
+                session.recommendedCareers = analysisResult.careers;
+                session.selectedCareer = analysisResult.careers[0].name;
+            }
         } catch (error) {
-            this.logger.error('Error IA:', error);
-            session.resultProfile = 'Análisis Pendiente';
-            session.analysisReport = 'Hubo un problema técnico. Por favor contacta soporte.';
+            this.logger.error('Error IA (Fallback):', error);
+            session.resultProfile = 'Perfil en Exploración';
+            session.analysisReport = `### Análisis Pendiente\nHubo un problema técnico.`;
+            session.recommendedCareers = [{ name: "Orientación General", duration: "Flexible", reason: "Fallback" }];
+            session.selectedCareer = "Orientación General";
         }
-
         session.isCompleted = true;
         session.completedAt = new Date();
-
         return session.save();
     }
 
-    private async getSessionWithQuestions(session: TestSession): Promise<StartTestResponse> {
+    private async getSessionWithQuestions(session: TestSession & Document): Promise<StartTestResponse> {
         const populatedSession = await session.populate<{ questions: Question[] }>('questions');
-
-        const responseQuestions: TestQuestionDto[] = populatedSession.questions.map(q => ({
-            _id: String(q._id), 
-            questionText: q.questionText,
-            options: q.options,
-            category: q.category,
-        }));
-
-        // CORRECCIÓN 3: Usamos String() para asegurar el tipo de _id
-        this.logger.log(`Sesión ${String(session._id)} reanudada con ${responseQuestions.length} preguntas.`);
-
-        return {
-            // CORRECCIÓN 3 (2ª parte): Usamos String()
-            sessionId: String(session._id),
-            questions: responseQuestions,
-        };   
+        return this.formatResponse(populatedSession as any, populatedSession.questions);
     }
 
     async getTestSessionResults(sessionId: string, userId: string): Promise<TestSession> {
         const session = await this.testSessionModel.findById(sessionId).exec();
-
-        if (!session) {
-            throw new NotFoundException(`Sesión con ID ${sessionId} no encontrada.`);
-        }
-        if (session.user.toString() !== userId) {
-            throw new ForbiddenException('No tienes permiso para ver esta sesión.');
-        }
-        if (!session.isCompleted) {
-            throw new BadRequestException('El test aún no ha sido completado.');
-        }
-
-        // El resultado está en la sesión, solo la devolvemos
+        if (!session) throw new NotFoundException('Sesión no encontrada.');
         return session;
     }
 
-    /**
-     * Actualiza datos demográficos de la sesión
-     */
     async updateDemographics(sessionId: string, userId: string, age: number, gender: string): Promise<void> {
         const session = await this.testSessionModel.findById(sessionId);
-        if (!session || session.user.toString() !== userId) {
-            throw new ForbiddenException('Sesión no válida.');
-        }
+        if (!session || session.user.toString() !== userId) throw new ForbiddenException('Sesión no válida.');
         session.userAge = age;
         session.userGender = gender;
         await session.save();
+    }
+
+    async selectCareer(sessionId: string, userId: string, careerName: string): Promise<TestSession> {
+        const session = await this.testSessionModel.findById(sessionId).exec() as TestSession & Document;
+        if (!session || session.user.toString() !== userId) throw new ForbiddenException('Sesión inválida.');
+        session.selectedCareer = careerName;
+        return session.save();
+    }
+
+    async getUserTestStatus(userId: string) {
+        const lastCompleted = await this.testSessionModel
+            .findOne({ user: userId, isCompleted: true })
+            .sort({ createdAt: -1 })
+            .exec();
+
+        return {
+            hasCompletedTest: !!lastCompleted,
+            selectedCareer: lastCompleted?.selectedCareer || null,
+            sessionId: lastCompleted?._id || null
+        };
+    }
+
+    // --- HELPER DE ALEATORIZACIÓN ---
+    private formatResponse(session: TestSession & Document, questionsDocs: any[]): StartTestResponse {
+        return {
+            sessionId: String(session._id),
+            currentPhase: session.currentPhase,
+            questions: questionsDocs.map(q => ({
+                _id: String(q._id),
+                questionText: q.questionText,
+                // AQUÍ ESTÁ LA MAGIA: Aleatorizamos las opciones
+                options: this.shuffleOptions(q.options),
+                type: q.type
+            }))
+        };
+    }
+
+    private shuffleOptions(options: any[]): { text: string; originalIndex: number }[] {
+        // 1. Normalizar a estructura común con índice original
+        const normalized = options.map((opt, index) => {
+            const text = typeof opt === 'string' ? opt : opt.text;
+            return { text, originalIndex: index };
+        });
+
+        // 2. Mezclar (Fisher-Yates Shuffle)
+        for (let i = normalized.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [normalized[i], normalized[j]] = [normalized[j], normalized[i]];
+        }
+
+        return normalized;
     }
 }

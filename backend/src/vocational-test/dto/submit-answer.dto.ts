@@ -10,6 +10,6 @@ export class SubmitAnswerDto {
     @ApiProperty({ description: 'Índice (0-3) de la opción seleccionada', example: 1 })
     @IsInt()
     @Min(0)
-    @Max(3) // Asegura que el índice esté en el rango correcto
+    @Max(4) // Asegura que el índice esté en el rango correcto
     selectedOptionIndex: number;
 }

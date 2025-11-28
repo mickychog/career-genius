@@ -1,21 +1,23 @@
-// backend/src/vocational-test/schemas/test-session.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema, Types } from 'mongoose';
-import { User } from '../../users/schemas/user.schema'; // Importa tu schema de User
-import { Question } from './question.schema'; // Importa el schema de Question
+import { Document, Schema as MongooseSchema } from 'mongoose';
+//import { CareerRecommendation, CareerRecommendationSchema } from './test-session.schema'; // Auto-referencia si está en el mismo archivo o ajusta imports
 
-// Subdocumento para almacenar las respuestas
-@Schema({ _id: false }) // No necesita ID propio
-class UserAnswer {
+// Asegúrate de exportar esto si lo usas fuera
+@Schema({ _id: false })
+export class UserAnswer {
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Question', required: true })
-    question: Types.ObjectId; // Referencia a la pregunta
+    question: MongooseSchema.Types.ObjectId;
 
     @Prop({ required: true })
-    selectedOptionIndex: number; // El índice (0-3) de la opción elegida
-}
-export const UserAnswerSchema = SchemaFactory.createForClass(UserAnswer);
+    selectedOptionIndex: number;
 
-// --- NSubdocumento para Carreras Recomendadas ---
+    // Guardamos el valor semántico para facilitar cálculos
+    @Prop()
+    pointsTo?: string;
+}
+const UserAnswerSchema = SchemaFactory.createForClass(UserAnswer);
+
+// Re-declaramos CareerRecommendation si no lo tienes en otro archivo compartido
 @Schema({ _id: false })
 export class CareerRecommendation {
     @Prop() name: string;
@@ -23,44 +25,51 @@ export class CareerRecommendation {
     @Prop() reason: string;
 }
 const CareerRecommendationSchema = SchemaFactory.createForClass(CareerRecommendation);
-// -----------------------------------------------------
-
 
 
 @Schema({ timestamps: true })
 export class TestSession extends Document {
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true, index: true })
-    user: Types.ObjectId; // Referencia al usuario
+    user: MongooseSchema.Types.ObjectId;
 
-    // --- CAMPOS DEMOGRÁFICOS ---
-    @Prop({ type: Number })
-    userAge?: number;
+    @Prop({ type: Number }) userAge?: number;
+    @Prop({ type: String }) userGender?: string;
 
-    @Prop({ type: String, enum: ['Masculino', 'Femenino', 'Prefiero no decir'] })
-    userGender?: string;
-    // ----------------------------------
+    // ---Lógica Adaptativa ---
+    @Prop({ type: Map, of: Number, default: {} })
+    scores: Map<string, number>; // Puntuación acumulada por área
 
-    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Question' }], required: true })
-    questions: Types.ObjectId[]; // Array de IDs de las preguntas presentadas
+    @Prop({ type: [String], default: [] })
+    activeBranches: string[]; // Las áreas ganadoras
+
+    @Prop({ enum: ['GENERAL', 'SPECIFIC', 'CONFIRMATION', 'FINISHED'], default: 'GENERAL' })
+    currentPhase: string;
+    // -------------------------------
+
+    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Question' }], default: [] })
+    questions: MongooseSchema.Types.ObjectId[];
 
     @Prop({ type: [UserAnswerSchema], default: [] })
-    answers: UserAnswer[]; // Array de respuestas del usuario
+    answers: UserAnswer[];
 
     @Prop({ default: false })
     isCompleted: boolean;
 
     @Prop()
-    completedAt?: Date; // Fecha de finalización
+    completedAt?: Date;
 
-    @Prop({ type: String }) // Podrías almacenar aquí el resultado (ej. "Analítico-Creativo")
+    @Prop({ type: String })
     resultProfile?: string;
 
     @Prop({ type: String })
     analysisReport?: string;
 
-    // --- CAMPO ESTRUCTURADO ---
     @Prop({ type: [CareerRecommendationSchema], default: [] })
     recommendedCareers: CareerRecommendation[];
+
+    @Prop({ type: String })
+    selectedCareer?: string;
 }
+
 export const TestSessionSchema = SchemaFactory.createForClass(TestSession);
 TestSessionSchema.index({ user: 1, isCompleted: 1 }, { unique: true, partialFilterExpression: { isCompleted: false } });

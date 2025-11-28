@@ -1,0 +1,189 @@
+/* Estilos Generales y Comunes (Basados en tu Maqueta) */
+
+.settings-container {
+    padding: 40px 60px;
+    max-width: 900px;
+    margin: 0 auto;
+    background: #f7fafc;
+    min-height: calc(100vh - 70px);
+}
+
+.settings-header {
+    margin-bottom: 30px;
+}
+
+.settings-header h2 {
+    font-size: 2em;
+    color: #2d3748;
+    margin-bottom: 10px;
+}
+
+.settings-header p {
+    color: #718096;
+}
+
+/* Sección de Ajustes */
+.settings-section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.settings-section h3 {
+    color: #2d3748;
+    font-size: 1.5em;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+/* Grid para Info Personal */
+.profile-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 30px;
+}
+
+.info-field {
+    padding: 10px 0;
+    border-bottom: 1px dashed #e2e8f0;
+}
+
+.info-label {
+    font-size: 0.8em;
+    color: #718096;
+    font-weight: 500;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.info-value {
+    font-size: 1.1em;
+    color: #2d3748;
+    font-weight: 600;
+}
+
+.info-input,
+.toggle-select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+/* Item de Configuración (Notificaciones, etc.) */
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.setting-item:last-child {
+    border-bottom: none;
+}
+
+.setting-info {
+    max-width: 70%;
+}
+
+.setting-title {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 5px;
+}
+
+.setting-description {
+    font-size: 0.9em;
+    color: #718096;
+    line-height: 1.4;
+}
+
+/* Toggle Switch (Copiado de tu CSS original) */
+.toggle-switch {
+    width: 50px;
+    height: 26px;
+    background: #e2e8f0;
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+    flex-shrink: 0;
+}
+
+.toggle-switch.active {
+    background: #667eea;
+}
+
+.toggle-switch::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: left 0.3s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toggle-switch.active::after {
+    left: 27px;
+}
+
+/* ZONA DE PELIGRO */
+.danger-zone {
+    padding: 30px;
+    border: 2px solid #f6ad55;
+    /* Naranja/Advertencia */
+    background: #fffaf0;
+    border-radius: 15px;
+    margin-bottom: 30px;
+}
+
+.danger-zone h4 {
+    color: #d69e2e;
+    font-size: 1.2em;
+    margin-bottom: 15px;
+}
+
+/* Botones de Estilo */
+.btn-danger {
+    background: #e53e3e;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 25px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-danger:hover {
+    background: #c53030;
+    transform: translateY(-2px);
+}
+
+.btn-edit,
+.btn-secondary {
+    background: transparent;
+    color: #667eea;
+    border: 2px solid #667eea;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    width: auto;
+}
+
+.btn-edit:hover,
+.btn-secondary:hover {
+    background: #eef2ff;
+    transform: translateY(-1px);
+}

@@ -28,4 +28,12 @@ export const saveDemographics = async (sessionId: string, age: number, gender: s
     return apiClient.post(`/vocational-test/${sessionId}/demographics`, { age, gender });
 };
 
+export const selectCareer = async (sessionId: string, careerName: string) => {
+    return apiClient.post(`/vocational-test/${sessionId}/select-career`, { careerName });
+};
+
+export const getTestStatus = async () => {
+    return apiClient.get('/vocational-test/status');
+};
+
 export default apiClient;

@@ -19,19 +19,19 @@ const Sidebar = () => {
           <NavLink to="/dashboard/vocational-test">🎓 Test Vocacional</NavLink>
         </li>
 
-        {/* Nueva Opción: Catálogo de Universidades */}
+        {/* NCatálogo de Universidades */}
         <li>
           <NavLink to="/dashboard/university-search">
             🏫 Búsqueda de Universidad
           </NavLink>
         </li>
 
-        {/* Nueva Opción: Reemplazo del simulador por Aptitudes */}
-        <li>
+        {/* Reemplazo del simulador por Aptitudes */}
+        {/* <li>
           <NavLink to="/dashboard/aptitude-test">
             🧠 Examen de Aptitudes
           </NavLink>
-        </li>
+        </li> */}
 
         {/* Cursos Gratis y Capacitación */}
         <li>

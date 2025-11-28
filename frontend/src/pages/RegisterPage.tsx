@@ -130,7 +130,7 @@ const RegisterPage = () => {
                 <option value="">Selecciona...</option>
                 {/* Asegúrate que los 'value' coincidan con tu enum UserRole */}
                 <option value="student">Estudiante</option>
-                <option value="professional">Profesional</option>
+                {/* <option value="professional">Profesional</option> */}
                 {/* <option value="company">Empresa</option> */}
               </select>
               {errors.role && (

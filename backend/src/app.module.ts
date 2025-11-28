@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { VocationalTestModule } from './vocational-test/vocational-test.module';
 import { AiModule } from './ai/ai.module';
 import { UniversitySearchModule } from './university-search/university-search.module';
+import { SkillsDevelopmentModule } from './skills-development/skills-development.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { UniversitySearchModule } from './university-search/university-search.mo
     VocationalTestModule,
     AiModule,
     UniversitySearchModule, 
+    SkillsDevelopmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

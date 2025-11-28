@@ -8,6 +8,7 @@ export interface GeneratedQuestion {
     options: string[];
 }
 
+
 // Interfaz para el resultado de análisis
 export interface AnalysisResult {
     profile: string;
@@ -35,6 +36,16 @@ export interface UniversityRecommendation {
     };
 }
 
+export interface CourseRecommendation {
+    title: string;
+    platform: string; // Youtube, Coursera, Web, etc.
+    type: 'Preuniversitario' | 'Fundamentos' | 'Habilidad Blanda';
+    description: string;
+    searchQuery: string; // Para generar el link de búsqueda si no hay URL directa
+    difficulty: 'Básico' | 'Intermedio';
+}
+
+
 @Injectable()
 export class AiService {
     private genAI: GoogleGenerativeAI;
@@ -51,95 +62,72 @@ export class AiService {
     /**
      * Genera preguntas vocacionales basadas en una categoría específica y el contexto de Bolivia.
      */
-    async generateVocationalQuestions(count: number, category: string): Promise<GeneratedQuestion[]> {
+    /**
+         * Genera preguntas vocacionales dinámicas según la fase y categoría.
+         * AHORA SOPORTA 3 ARGUMENTOS CORRECTAMENTE.
+         */
+    async generateVocationalQuestions(count: number, type: string, category?: string): Promise<GeneratedQuestion[]> {
         try {
-            // Usamos 'gemini-1.5-flash' que es rápido y estable
             const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+            let prompt = '';
 
-            const prompt = `
-Genera ${count} preguntas de opción múltiple en español para un test vocacional enfocado en **BOLIVIA**.
-El público objetivo incluye: estudiantes de colegio, personas sin estudios formales y personas buscando cambiar de oficio.
+            // INFO DE CONTEXTO PARA LA IA (Tu mapa de carreras)
+            const boliviaContext = `
+USA ESTE CONTEXTO DE BOLIVIA PARA LA CATEGORÍA:
+- TEC_INGENIERIA: Ing. de Sistemas/Informática/Software, Ing. Civil, Ing. Ambiental, Ing. Petrolera (Petróleo y Gas), Ing. Industrial, Ing. Mecatrónica, Ing. Minera, Ing. Eléctrica, Ing. Electrónica, Ing. Telecomunicaciones, Ing. Agronómica, Ing. Agroindustrial, Ing. de Alimentos, Ing. Química, Ing. de Energías Renovables, técnicos afines en sistemas, electrónica, electricidad, mecánica, construcción y agro.
+- SALUD_BIOLOGIA: Medicina, Enfermería, Odontología, Farmacia/Bioquímica y Farmacia, Bioquímica, Biología, Fisioterapia y Kinesiología, Nutrición, Medicina Veterinaria y Zootecnia, Salud Pública y gestión en salud.
+- ARTE_CREATIVIDAD: Diseño Gráfico, Diseño Digital/Multimedia, Arquitectura, Artes Plásticas y Visuales, Comunicación Audiovisual, Publicidad y Marketing, Música/Artes Musicales.
+- SOCIAL_HUMANIDADES: Derecho, Psicología, Trabajo Social, Sociología, Comunicación Social, Ciencias de la Educación, Educación Inicial, Primaria y Secundaria (todas las especialidades de Normales/ESFM), Filosofía, Historia, Lengua y Literatura, Idiomas.
+- NEGOCIOS_ECONOMIA: Administración de Empresas, Administración de Negocios, Ingeniería Comercial, Economía, Ingeniería Financiera, Contaduría Pública, Auditoría, Comercio Exterior/Comercio Internacional, Negocios Internacionales, Marketing y Gestión Comercial.
+`; 
+if (type === 'GENERAL') {
+                // Ya no se usa, el servicio usa las estáticas, pero lo dejamos por si acaso
+                return [];
+            } else if (type === 'SPECIFIC' && category) {
+                prompt = `
+Genera ${count} preguntas de opción múltiple para un estudiante de secundaria en Bolivia.
+Categoría: **${category}**.
+${boliviaContext}
 
-**Categoría de las preguntas:** ${category}
+Objetivo: Medir interés real en las actividades diarias de estas carreras, NO conocimientos técnicos.
+Estilo: "¿Te gustaría hacer X?", "¿Te ves trabajando en Y?". Evita jerga compleja.
 
-**Contexto Boliviano:**
-- Incluye situaciones realistas del mercado laboral local (comercio, agricultura, minería, tecnología, servicios, emprendimiento informal y formal).
-- Usa un lenguaje claro y accesible, evitando tecnicismos académicos complejos.
-- Las preguntas deben ayudar a discernir si la persona tiene aptitud o interés real en esa área.
-
-**Requisitos de Salida:**
-1. Formato estrictamente JSON (Array de objetos).
-2. Cada objeto debe tener: "question" (string) y "options" (array de 4 strings).
-3. Las opciones deben ser distintas y representar diferentes inclinaciones dentro de la categoría.
-4. NO incluyas bloques de código markdown (\`\`\`json), solo el JSON puro si es posible, o asegúrate de que sea fácil de limpiar.
-
-Ejemplo de formato JSON:
-[
-  {
-    "question": "Si tuvieras un capital semilla para un negocio en tu zona, ¿en qué lo invertirías?",
-    "options": [
-      "En maquinaria para transformar materia prima (ej. taller de alimentos o madera).",
-      "En mercadería para abrir una tienda de abarrotes o ropa.",
-      "En equipos para ofrecer servicios digitales o técnicos.",
-      "En insumos para un proyecto de cultivo o crianza de animales."
-    ]
-  }
-]
+Requisitos JSON:
+[ { "question": "...", "options": ["Opción A (Muy interesante)", "Opción B", "Opción C", "Opción D (Poco interesante)"] } ]
+Asegúrate de que las 4 opciones sean distintas actividades o niveles de agrado, NO "Sí/No".
 `;
+            } else if (type === 'CONFIRMATION' && category) {
+                prompt = `
+Genera ${count} preguntas para diferenciar SUB-ÁREAS dentro de: **${category}**.
+${boliviaContext}
 
-            // Configuración de seguridad relajada para evitar bloqueos falsos positivos en generación masiva
+Objetivo: Saber si el estudiante prefiere, por ejemplo, Ingeniería Civil vs Sistemas (si es TEC), o Medicina vs Veterinaria (si es SALUD).
+
+Requisitos JSON:
+[ { "question": "Dilema de preferencia...", "options": ["Prefiero la opción de [Subárea 1]", "Prefiero [Subárea 2]", "Prefiero [Subárea 3]", "Prefiero [Subárea 4]"] } ]
+`;
+}
+
             const generationConfig = {
-                temperature: 0.8, // Creatividad alta para variedad
+                temperature: 0.9, // Aumentamos creatividad para evitar duplicados
                 topK: 40,
                 topP: 0.95,
                 maxOutputTokens: 8192,
-                responseMimeType: "application/json", 
+                responseMimeType: "application/json",
             };
-
-            const safetySettings = [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            ];
 
             const result = await model.generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 generationConfig,
-                safetySettings,
             });
 
-            // Log para depuración en caso de fallos de seguridad
-            // this.logger.warn('AI Prompt Feedback:', JSON.stringify(result.response.promptFeedback, null, 2));
-
-            const response = result.response;
-            const jsonText = response.text().trim();
-
-            // this.logger.log(`Respuesta cruda de IA: ${jsonText.substring(0, 100)}...`);
-
-            // Intenta parsear la respuesta JSON limpiando bloques markdown
-            try {
-                const cleanedJson = jsonText.replace(/^```json\s*|```$/g, '').trim();
-                const questions: GeneratedQuestion[] = JSON.parse(cleanedJson);
-
-                // Validación básica de la estructura
-                if (!Array.isArray(questions) || questions.some(q => !q.question || !Array.isArray(q.options) || q.options.length !== 4)) {
-                    throw new Error('La respuesta de la IA no tiene el formato JSON esperado.');
-                }
-                this.logger.log(`Generadas ${questions.length} preguntas para la categoría ${category}.`);
-                return questions;
-            } catch (parseError) {
-                this.logger.error(`Error parseando JSON de IA: ${parseError}. Respuesta cruda: ${jsonText}`);
-                throw new Error('Error al procesar la respuesta de la IA. Formato inválido.');
-            }
+            return JSON.parse(result.response.text());
 
         } catch (error) {
-            this.logger.error(`Error generando preguntas con IA para ${category}:`, error);
-            // Retornamos array vacío para no romper el proceso masivo en el servicio
+            this.logger.error(`Error generando preguntas (${type} - ${category}):`, error);
             return [];
         }
     }
-
     /**
      * Analiza y devuelve estructura para Cards.
      */
@@ -239,6 +227,49 @@ Provee información detallada y realista. Si la carrera es técnica, prioriza in
             return JSON.parse(result.response.text());
         } catch (error) {
             this.logger.error('Error buscando universidades:', error);
+            return [];
+        }
+    }
+
+    async getSkillRecommendations(careerName: string): Promise<CourseRecommendation[]> {
+        this.logger.log(`Buscando cursos para: ${careerName} en contexto Bolivia`);
+
+        const prompt = `
+Actúa como un tutor educativo experto en Bolivia.
+El estudiante quiere prepararse para la carrera: **"${careerName}"**.
+
+Recomienda 30 recursos educativos GRATUITOS (Cursos, Canales de YouTube, Listas de reproducción) para empezar a prepararse.
+
+**Contexto Bolivia:**
+1. Prioriza contenido **PREUNIVERSITARIO** (Matemáticas, Física, Química, Lenguaje) necesario para exámenes de ingreso (PSA, Pre-facultativos) de universidades públicas (UMSA, UAGRM, UMSS).
+2. Incluye cursos de **Fundamentos** de la carrera.
+3. Incluye alguna **Habilidad Blanda** o herramienta digital necesaria.
+
+**Formato de Salida JSON (Array):**
+[
+  {
+    "title": "Nombre del Curso/Video (Ej. 'Física desde Cero para el PSA')",
+    "platform": "YouTube" | "Khan Academy" | "Web",
+    "type": "Preuniversitario" | "Fundamentos" | "Habilidad Blanda",
+    "description": "Breve descripción de por qué sirve para esta carrera.",
+    "searchQuery": "Término exacto para buscar este video en YouTube/Google (Ej. 'Curso preuniversitario fisica umsa')",
+    "difficulty": "Básico"
+  }
+]
+`;
+
+        try {
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+            const result = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    maxOutputTokens: 8192,
+                    responseMimeType: "application/json"
+                },
+            });
+            return JSON.parse(result.response.text());
+        } catch (error) {
+            this.logger.error('Error buscando cursos:', error);
             return [];
         }
     }

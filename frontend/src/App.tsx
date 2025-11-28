@@ -15,6 +15,9 @@ import "react-toastify/dist/ReactToastify.css";
 import VocationalTestPage from "./pages/VocationalTestPage";
 import TestResultsPage from "./pages/TestResultsPage";
 import UniversitySearchPage from "./pages/UniversitySearchPage"; 
+import SkillsDevelopmentPage from "./pages/SkillsDevelopmentPage";
+import SettingsPage from "./pages/SettingsPage";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   return (
@@ -31,6 +34,7 @@ function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          
 
           {/* Rutas Privadas usando el Layout */}
           <Route element={<ProtectedRoute />}>
@@ -45,6 +49,9 @@ function App() {
               <Route path="results/:sessionId" element={<TestResultsPage />} />
               {/* Aquí añadirás otras rutas del dashboard: */}
               <Route path="university-search" element={<UniversitySearchPage />} />
+              <Route path="skills-development" element={<SkillsDevelopmentPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="profile" element={<ProfilePage />} />
               {/* <Route path="settings" element={<SettingsPage />} /> */}
               {/* ... etc ... */}
             </Route>

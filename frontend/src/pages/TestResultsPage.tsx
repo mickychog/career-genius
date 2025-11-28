@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom"; // useNavigate para reiniciar
-import apiClient from "../services/api";
+import { useParams, useNavigate } from "react-router-dom";
+import apiClient, { selectCareer } from "../services/api"; // Importar selectCareer
 import { toast } from "react-toastify";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import "./TestResultsPage.css"; // Nuevo CSS
+import "./TestResultsPage.css";
 
 interface Career {
   name: string;
@@ -15,12 +15,12 @@ interface Career {
 interface FinalResult {
   resultProfile: string;
   analysisReport: string;
-  recommendedCareers: Career[]; // Recibimos el array
+  recommendedCareers: Career[];
 }
 
 const TestResultsPage = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const navigate = useNavigate(); // Hook para navegación
+  const navigate = useNavigate();
 
   const [result, setResult] = useState<FinalResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,13 +42,25 @@ const TestResultsPage = () => {
   }, [sessionId]);
 
   const handleRestart = () => {
-    // Navegar a la ruta del test iniciará uno nuevo automáticamente
     navigate("/dashboard/vocational-test");
   };
 
-  const handleSaveCareer = (careerName: string) => {
-    // Aquí podrías llamar a un endpoint para guardar en favoritos
-    toast.success(`Carrera "${careerName}" guardada en tu perfil.`);
+  // --- LÓGICA CORREGIDA PARA GUARDAR ---
+  const handleSaveCareer = async (careerName: string) => {
+    if (!sessionId) return;
+
+    try {
+      await selectCareer(sessionId, careerName);
+      toast.success(
+        `¡Genial! Has seleccionado "${careerName}". Ahora puedes ver tu plan de cursos.`
+      );
+
+      // Opcional: Redirigir automáticamente a Skills tras guardar
+      // navigate('/dashboard/skills-development');
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo guardar la elección. Intenta de nuevo.");
+    }
   };
 
   if (isLoading)
@@ -57,7 +69,6 @@ const TestResultsPage = () => {
 
   return (
     <div className="results-container animate-fade-in">
-      {/* Encabezado de Perfil */}
       <div className="results-header-card">
         <div className="profile-badge">TU PERFIL PROFESIONAL</div>
         <h1 className="profile-title">{result.resultProfile}</h1>
@@ -66,7 +77,6 @@ const TestResultsPage = () => {
         </p>
       </div>
 
-      {/* Sección de Carreras Recomendadas (CARDS) */}
       <h2 className="section-title">🎓 Carreras Recomendadas para Ti</h2>
       <div className="careers-grid">
         {result.recommendedCareers &&
@@ -80,13 +90,12 @@ const TestResultsPage = () => {
                 className="btn-save-career"
                 onClick={() => handleSaveCareer(career.name)}
               >
-                ❤️ Guardar Opción
+                ❤️ Seleccionar esta Opción
               </button>
             </div>
           ))}
       </div>
 
-      {/* Sección de Análisis Detallado */}
       <div className="analysis-section">
         <h2 className="section-title">📊 Análisis de Fortalezas</h2>
         <div className="markdown-box">
@@ -96,7 +105,6 @@ const TestResultsPage = () => {
         </div>
       </div>
 
-      {/* Botones de Acción Final */}
       <div className="actions-footer">
         <button className="btn-secondary" onClick={handleRestart}>
           🔄 Reiniciar Test

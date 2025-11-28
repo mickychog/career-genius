@@ -111,6 +111,30 @@ export class VocationalTestController {
         const userId = req.user.sub;
         return this.vocationalTestService.getTestSessionResults(sessionId, userId);
     }
+
+    /**
+     * Guarda la carrera seleccionada por el usuario.
+     */
+    @UseGuards(JwtAuthGuard)
+    @Post(':sessionId/select-career')
+    @ApiOperation({ summary: 'Guarda la carrera seleccionada por el usuario' })
+    async selectCareer(
+        @Param('sessionId') sessionId: string,
+        @Request() req,
+        @Body() body: { careerName: string }
+    ) {
+        const userId = req.user.sub;
+        return this.vocationalTestService.selectCareer(sessionId, userId, body.careerName);
+    }
+
+    // --- Estado del usuario ---
+    @UseGuards(JwtAuthGuard)
+    @Get('status')
+    @ApiOperation({ summary: 'Verifica si el usuario ya tiene un test completado y su carrera' })
+    async getStatus(@Request() req) {
+        const userId = req.user.sub;
+        return this.vocationalTestService.getUserTestStatus(userId);
+    }
 }
 
 interface JwtUserPayload {
