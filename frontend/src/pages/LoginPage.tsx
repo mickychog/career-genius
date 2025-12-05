@@ -1,12 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom"; // Para el enlace de registro
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../services/api";
-import { useAuth } from "../context/AuthContext"; // Importa el hook de autenticación
-import "./AuthPage.css"; // Crearemos este archivo CSS
+import { useAuth } from "../context/AuthContext";
+import "./AuthPage.css";
 import { toast } from "react-toastify";
 
-// Interfaz para los datos del formulario
 interface LoginFormInputs {
   email: string;
   password: string;
@@ -18,135 +17,158 @@ const LoginPage = () => {
     handleSubmit,
     formState: { errors },
   } = useForm<LoginFormInputs>();
-  const { login } = useAuth(); // Obtiene la función login del contexto
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const [apiError, setApiError] = useState<string | null>(null); // Para errores del backend
+  const location = useLocation(); // Para leer la URL
+  const [isLoading, setIsLoading] = useState(false);
 
-  const onSubmit: SubmitHandler<LoginFormInputs> = async (
-    data: LoginFormInputs
-  ) => {
-    setApiError(null); // Limpia errores previos
+  // 1. Detectar token de Google al cargar
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get("token");
+
+    if (token) {
+      // Si hay token, guardamos y redirigimos
+      // Nota: En este flujo simple, no tenemos el objeto 'user' completo aún,
+      // pero el AuthContext o el Dashboard cargarán los datos con el token.
+      localStorage.setItem("token", token);
+      // Forzamos una recarga rápida o llamada a /me para obtener datos del usuario
+      // Para simplificar, asumimos que login() acepta solo token o recargamos
+
+      // Simular objeto usuario temporal o hacer fetch
+      apiClient
+        .get("/users/me")
+        .then((res) => {
+          login(token, res.data);
+          toast.success(`¡Acceso con Google exitoso!`);
+          navigate("/dashboard");
+        })
+        .catch(() => {
+          toast.error("Error al validar sesión de Google.");
+        });
+    }
+  }, [location, login, navigate]);
+
+  const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
+    setIsLoading(true);
     try {
       const response = await apiClient.post("/auth/login", data);
-      // Llama a la función login del context con el token y los datos del usuario
       login(response.data.access_token, response.data.user);
-      toast.success("¡Login exitoso!");
-      navigate("/dashboard"); // Redirige al dashboard (o donde quieras)
+      toast.success(`¡Bienvenido de vuelta!`);
+      navigate("/dashboard");
     } catch (error: any) {
-      console.error("Error en el login:", error);
-      // Muestra un mensaje de error genérico o específico del backend
-      setApiError(
-        error.response?.data?.message ||
-          "Error al iniciar sesión. Verifica tus credenciales."
-      );
-      toast.error(apiError || "Error al iniciar sesión");
+      const msg = error.response?.data?.message || "Credenciales incorrectas.";
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="mockup-container active">
-      {" "}
-      {/* Asegúrate que sea visible */}
-      <div className="auth-container">
-        <div className="auth-side">
-          <h2>Bienvenido de vuelta</h2>
-          <p>
-            Accede a tu cuenta y continúa construyendo tu futuro profesional con
-            las mejores herramientas de orientación vocacional e inteligencia
-            artificial.
-          </p>
-        </div>
-        <div className="auth-form-side">
-          <div className="auth-logo">🎯 CareerGenius</div>
-          <h2 style={{ color: "#2d3748", marginBottom: "10px" }}>
-            Iniciar Sesión
-          </h2>
-          <p style={{ color: "#718096", marginBottom: "30px" }}>
-            Ingresa tus credenciales para continuar
-          </p>
-          {/* Muestra el error de la API */}
-          {apiError && (
-            <p style={{ color: "red", marginBottom: "15px" }}>{apiError}</p>
-          )}
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="form-group">
-              <label htmlFor="email">Correo Electrónico</label>{" "}
-              {/* Añadido htmlFor */}
-              <input
-                id="email" // Añadido id
-                type="email"
-                className={`form-input ${errors.email ? "input-error" : ""}`} // Clase condicional para error
-                placeholder="tu@email.com"
-                {...register("email", {
-                  required: "El correo es requerido",
-                  pattern: {
-                    // Validación básica de email
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: "Correo electrónico inválido",
-                  },
-                })}
-              />
-              {errors.email && (
-                <p
-                  style={{ color: "red", fontSize: "0.8em", marginTop: "5px" }}
-                >
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
+  // 2. Acción del botón Google
+  const handleGoogleLogin = () => {
+    // Redirige al usuario al backend para iniciar el flujo OAuth
+    window.location.href = "http://localhost:3000/api/v1/auth/google";
+  };
 
+  return (
+    <div className="auth-page-container animate-fade-in">
+      <div className="auth-card">
+        <div className="auth-visual-side">
+          <div className="visual-content">
+            <h2>Bienvenido de vuelta</h2>
+            <p>
+              Accede a tu cuenta para continuar construyendo tu futuro
+              profesional.
+            </p>
+            <ul className="benefits-list">
+              <li>
+                <span className="benefit-icon">🚀</span>
+                <div>
+                  <strong>Continúa tu progreso</strong>
+                  <span>Retoma tus tests y cursos.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div className="visual-overlay"></div>
+        </div>
+
+        <div className="auth-form-side">
+          <div className="form-header">
+            <div className="auth-logo">🎯 CareerGenius</div>
+            <h2>Iniciar Sesión</h2>
+            <p>Ingresa tus credenciales para continuar.</p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
+            {/* ... Inputs de Email y Password (sin cambios) ... */}
             <div className="form-group">
-              <label htmlFor="password">Contraseña</label>{" "}
-              {/* Añadido htmlFor */}
+              <label htmlFor="email">Correo Electrónico</label>
               <input
-                id="password" // Añadido id
+                id="email"
+                type="email"
+                className={`form-input ${errors.email ? "input-error" : ""}`}
+                placeholder="tu@email.com"
+                {...register("email", { required: "Requerido" })}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="password">Contraseña</label>
+              <input
+                id="password"
                 type="password"
                 className={`form-input ${errors.password ? "input-error" : ""}`}
                 placeholder="••••••••"
-                {...register("password", {
-                  required: "La contraseña es requerida",
-                })}
+                {...register("password", { required: "Requerido" })}
               />
-              {errors.password && (
-                <p
-                  style={{ color: "red", fontSize: "0.8em", marginTop: "5px" }}
-                >
-                  {errors.password.message}
-                </p>
-              )}
             </div>
 
-            <div style={{ textAlign: "right", marginBottom: "20px" }}>
-              <Link
-                to="/forgot-password"
-                style={{
-                  color: "#667eea",
-                  textDecoration: "none",
-                  fontSize: "0.9em",
-                }}
-              >
-                ¿Olvidaste tu contraseña?
-              </Link>{" "}
-              {/* Usar Link para navegación interna */}
-            </div>
-
-            <button type="submit" className="btn-primary">
-              Iniciar Sesión
+            <button
+              type="submit"
+              className="btn-primary btn-block"
+              disabled={isLoading}
+              style={{ marginTop: "20px" }}
+            >
+              {isLoading ? "Entrando..." : "Iniciar Sesión"}
             </button>
-          </form>{" "}
-          {/* Cierre del form */}
+          </form>
+
+          {/* Botón de Google Funcional */}
           <div className="divider">
             <span>o continúa con</span>
           </div>
-          <div className="social-login">
-            {/* Estos botones necesitarán su propia lógica */}
-            <button className="social-btn">G</button>
-            <button className="social-btn">f</button>
-            <button className="social-btn">in</button>
+          <div
+            className="social-login-buttons"
+            style={{
+              display: "flex",
+              gap: "10px",
+              justifyContent: "center",
+              marginBottom: "20px",
+            }}
+          >
+            <button
+              onClick={handleGoogleLogin}
+              className="social-btn"
+              style={{
+                border: "1px solid #e2e8f0",
+                background: "white",
+                padding: "10px 20px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              <span style={{ fontSize: "1.2rem" }}>🇬</span> Google
+            </button>
           </div>
-          <div className="auth-link">
-            ¿No tienes cuenta? <Link to="/register">Regístrate aquí</Link>{" "}
-            {/* Usar Link */}
+
+          <div className="auth-footer">
+            ¿No tienes cuenta?{" "}
+            <Link to="/register" className="link-highlight">
+              Regístrate gratis aquí
+            </Link>
           </div>
         </div>
       </div>

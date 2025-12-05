@@ -1,59 +1,57 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-// 1. Agrupa TODOS los imports aquí al principio
 import Header from "./components/Header";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import AboutPage from "./pages/AboutPage";
+import VocationalTestPage from "./pages/VocationalTestPage";
+import TestResultsPage from "./pages/TestResultsPage";
+import UniversitySearchPage from "./pages/UniversitySearchPage";
+import SkillsDevelopmentPage from "./pages/SkillsDevelopmentPage";
+import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
+
 import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute"; // <-- Importar el nuevo componente
 import DashboardLayout from "./layouts/DashboardLayout";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import VocationalTestPage from "./pages/VocationalTestPage";
-import TestResultsPage from "./pages/TestResultsPage";
-import UniversitySearchPage from "./pages/UniversitySearchPage"; 
-import SkillsDevelopmentPage from "./pages/SkillsDevelopmentPage";
-import SettingsPage from "./pages/SettingsPage";
-import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   return (
-    // 2. Configura el enrutador
     <BrowserRouter>
-      <Header />{" "}
-      {/* <-- Añadir Header aquí, se mostrará en todas las páginas */}
-      <main>
-        {" "}
-        {/* Envuelve las rutas en un 'main' o 'div' si necesitas estilos */}
-        <Routes>
-          {/* Rutas Públicas */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          
+      {/* El Header maneja su propia lógica visual, lo dejamos fuera de las rutas */}
+      <Header />
 
-          {/* Rutas Privadas usando el Layout */}
+      <main>
+        <Routes>
+          {/* --- RUTAS PÚBLICAS (Solo accesibles si NO estás logueado) --- */}
+          <Route element={<PublicRoute />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+          </Route>
+
+          {/* --- RUTAS PROTEGIDAS (Solo accesibles si ESTÁS logueado) --- */}
           <Route element={<ProtectedRoute />}>
-            {" "}
-            {/* Protege todo el layout */}
             <Route path="/dashboard" element={<DashboardLayout />}>
-              {" "}
-              {/* <-- Usa el Layout */}
-              {/* La ruta index se renderiza DENTRO del Outlet del Layout */}
               <Route index element={<DashboardPage />} />
               <Route path="vocational-test" element={<VocationalTestPage />} />
               <Route path="results/:sessionId" element={<TestResultsPage />} />
-              {/* Aquí añadirás otras rutas del dashboard: */}
-              <Route path="university-search" element={<UniversitySearchPage />} />
-              <Route path="skills-development" element={<SkillsDevelopmentPage />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route
+                path="university-search"
+                element={<UniversitySearchPage />}
+              />
+              <Route
+                path="skills-development"
+                element={<SkillsDevelopmentPage />}
+              />
               <Route path="profile" element={<ProfilePage />} />
-              {/* <Route path="settings" element={<SettingsPage />} /> */}
-              {/* ... etc ... */}
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Route>
 
@@ -61,9 +59,10 @@ function App() {
           <Route path="*" element={<div>404 - Página no encontrada</div>} />
         </Routes>
       </main>
-      <ToastContainer // <-- Añadir Contenedor de Toasts
-        position="top-right" // Posición de las notificaciones
-        autoClose={3000} // Duración (3 segundos)
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
         closeOnClick
@@ -71,7 +70,7 @@ function App() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="light" // O "dark"
+        theme="light"
       />
     </BrowserRouter>
   );

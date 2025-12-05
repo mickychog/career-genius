@@ -1,122 +1,132 @@
-// frontend/src/pages/AboutPage.tsx
 import React from "react";
-import { Link } from "react-router-dom"; // Para los botones CTA
-import "./AboutPage.css"; // Crearemos este CSS
+import { Link } from "react-router-dom";
+import "./AboutPage.css";
 
 const AboutPage = () => {
   return (
-    <div className="about-container mockup-container active">
-      {" "}
-      {/* Usamos mockup-container para padding, etc. */}
+    <div className="about-container animate-fade-in">
       <div className="about-header">
-        <h2>¿Qué es CareerGenius?</h2>
-        <p>
-          La plataforma que revoluciona la orientación profesional con
-          inteligencia artificial
-        </p>
+        <h1>🎯 CareerGenius</h1>
+        <p>Orientación Vocacional Inteligente para el Futuro de Bolivia</p>
       </div>
+
       <div className="features-grid">
-        {/* Repetimos la estructura feature-box para cada característica */}
+        {/* Feature 1: El núcleo */}
         <div className="feature-box">
-          <div className="feature-icon">🎓</div>
-          <h3>Test Vocacional con IA</h3>
+          <div className="feature-icon">🧠</div>
+          <h3>Test Vocacional Adaptativo</h3>
           <p>
-            Evaluación avanzada que analiza tus aptitudes, intereses y
-            personalidad para identificar las carreras que mejor se adaptan a tu
-            perfil único.
+            Olvídate de los tests aburridos. Nuestro sistema usa un algoritmo de
+            "embudo" que adapta las preguntas en tiempo real según tus
+            respuestas, profundizando en tus verdaderos intereses.
           </p>
         </div>
+
+        {/* Feature 2: IA Gemini */}
         <div className="feature-box">
-          <div className="feature-icon">🤖</div>
-          <h3>Matching Inteligente</h3>
+          <div className="feature-icon">✨</div>
+          <h3>Potenciado por Google Gemini</h3>
           <p>
-            Nuestros algoritmos de IA analizan miles de ofertas laborales en
-            tiempo real para encontrar las que mejor se ajustan a tu perfil y
-            aspirations.
+            Utilizamos el modelo de IA más avanzado de Google (Gemini 1.5 Flash)
+            para analizar tu perfil y generar reportes detallados, no solo
+            resultados genéricos.
           </p>
         </div>
+
+        {/* Feature 3: Contexto Local */}
         <div className="feature-box">
-          <div className="feature-icon">📊</div>
-          <h3>Análisis de Mercado</h3>
+          <div className="feature-icon">🇧🇴</div>
+          <h3>Enfoque 100% Boliviano</h3>
           <p>
-            Visualiza tendencias del mercado laboral, demanda de habilidades y
-            salarios por sector para tomar decisiones informadas.
+            Recomendaciones ajustadas a la realidad nacional. Sugerimos carreras
+            disponibles en universidades (UMSA, UCB, UPB) e institutos técnicos
+            reales de tu departamento.
           </p>
         </div>
+
+        {/* Feature 4: Universidades */}
         <div className="feature-box">
-          <div className="feature-icon">🎤</div>
-          <h3>Simulador de Entrevistas</h3>
+          <div className="feature-icon">🏫</div>
+          <h3>Buscador Universitario</h3>
           <p>
-            Practica entrevistas con IA que te da feedback en tiempo real sobre
-            tu comunicación, lenguaje corporal y respuestas.
+            Una vez definida tu carrera, nuestra IA busca las mejores opciones
+            de estudio en Bolivia, detallando costos, duración y requisitos de
+            admisión.
           </p>
         </div>
+
+        {/* Feature 5: Habilidades */}
         <div className="feature-box">
-          <div className="feature-icon">🚀</div>
-          <h3>Desarrollo de Habilidades</h3>
+          <div className="feature-icon">📚</div>
+          <h3>Plan de Habilidades</h3>
           <p>
-            Planes de aprendizaje personalizados para cerrar las brechas entre
-            tu perfil actual y el ideal para tus metas profesionales.
+            Cerramos la brecha educativa recomendándote cursos gratuitos y
+            preuniversitarios específicos para que empieces a prepararte hoy
+            mismo.
           </p>
         </div>
+
+        {/* Feature 6: Seguridad */}
         <div className="feature-box">
-          <div className="feature-icon">🌐</div>
-          <h3>Conexión con Oportunidades</h3>
+          <div className="feature-icon">🔒</div>
+          <h3>Privacidad y Seguridad</h3>
           <p>
-            Accede a una red de empresas que buscan perfiles como el tuyo y
-            postúlate directamente desde la plataforma.
+            Tu perfil es tuyo. Gestionamos tus datos con estándares modernos de
+            encriptación y te damos control total sobre tu información.
           </p>
         </div>
       </div>
+
       <div className="tech-section">
         <h2>Tecnología de Vanguardia</h2>
         <p>
-          CareerGenius utiliza las APIs más avanzadas de inteligencia artificial
-          para ofrecerte la mejor experiencia:
+          Construido con un stack moderno para garantizar velocidad y precisión:
         </p>
         <div className="tech-logos">
-          {/* Estos podrían ser imágenes o simplemente texto */}
-          <div className="tech-logo">OpenAI GPT-4</div>
-          <div className="tech-logo">Google NLP</div>
-          <div className="tech-logo">LinkedIn Learning</div>
-          <div className="tech-logo">Indeed API</div>
+          <div className="tech-logo">Google Gemini AI</div>
+          <div className="tech-logo">React + TypeScript</div>
+          <div className="tech-logo">NestJS Backend</div>
+          <div className="tech-logo">MongoDB Atlas</div>
         </div>
       </div>
+
       <div className="testimonials">
-        <h2>Lo que Dicen Nuestros Usuarios</h2>
+        <h2>Historias de Éxito</h2>
         <div className="testimonial-grid">
           <div className="testimonial">
-            <div className="testimonial-avatar">M</div>
-            <h4>María López</h4>
+            <div className="testimonial-avatar">L</div>
+            <h4>Lucía M. (La Paz)</h4>
             <p>
-              "CareerGenius me ayudó a descubrir mi verdadera vocación. Ahora
-              trabajo en lo que realmente me apasiona."
+              "No sabía si estudiar Medicina o Biología. El test adaptativo
+              entendió que me gusta la investigación más que la clínica y me
+              sugirió Biotecnología."
             </p>
           </div>
           <div className="testimonial">
-            <div className="testimonial-avatar">C</div>
-            <h4>Carlos Ramírez</h4>
+            <div className="testimonial-avatar">J</div>
+            <h4>Jorge T. (Santa Cruz)</h4>
             <p>
-              "Como reclutador, la plataforma me ha permitido encontrar
-              candidatos perfectamente alineados con nuestras necesidades."
+              "Encontré cursos preuniversitarios exactos para la carrera que me
+              salió en el test. Me siento mucho más preparado para el examen de
+              ingreso."
             </p>
           </div>
           <div className="testimonial">
             <div className="testimonial-avatar">A</div>
-            <h4>Ana Martínez</h4>
+            <h4>Ana K. (Cochabamba)</h4>
             <p>
-              "El simulador de entrevistas fue clave para prepararme y conseguir
-              mi trabajo actual."
+              "Me encantó que las sugerencias de universidades fueran reales y
+              de mi ciudad. Ahorré mucho tiempo investigando."
             </p>
           </div>
         </div>
       </div>
+
       <div className="cta-section">
-        <h2>¿Listo para transformar tu futuro profesional?</h2>
+        <h2>¿Listo para descubrir tu camino?</h2>
         <div className="cta-buttons">
-          {/* Usamos Link para navegar a registro o login */}
           <Link to="/register" className="btn-primary">
-            Comenzar Ahora
+            Crear Cuenta Gratis
           </Link>
           <Link to="/" className="btn-secondary">
             Volver al Inicio
