@@ -10,11 +10,15 @@ import { Roles } from './decorators/roles.decorator';
 import { UserRole } from '../users/schemas/user.schema';
 import { RolesGuard } from './guards/roles.guard';
 import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config'; 
 
 @ApiTags('auth') // Agrupa endpoints en Swagger
 @Controller('auth')
 export class AuthController {
-    constructor(private authService: AuthService) { }
+    constructor(
+        private authService: AuthService,
+        private configService: ConfigService
+    ) { }
 
     @Post('register')
     @ApiOperation({ summary: 'Registrar un nuevo usuario' })
@@ -70,11 +74,12 @@ export class AuthController {
     @Get('google/callback')
     @UseGuards(AuthGuard('google'))
     async googleAuthRedirect(@Req() req, @Res() res) {
-        // req.user contiene el usuario validado por GoogleStrategy -> AuthService
         const result = await this.authService.loginWithGoogle(req.user);
 
-        // Redirigimos al Frontend pasando el token en la URL
-        // En producción, esto debería ser una variable de entorno FRONTEND_URL
-        res.redirect(`http://localhost:3001/login?token=${result.access_token}`);
+        // OBTENEMOS LA URL DEL FRONTEND DINÁMICAMENTE
+        const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+
+        // Redirigimos a la URL correcta
+        res.redirect(`${frontendUrl}/login?token=${result.access_token}`);
     }
 }

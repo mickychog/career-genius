@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom"; // Para el enlace de registro
+import { Link, useLocation, useNavigate } from "react-router-dom"; // Para el enlace de registro
 import apiClient from "../services/api";
 import { useAuth } from "../context/AuthContext"; // Importa el hook de autenticación
 import "./AuthPage.css"; // Crearemos este archivo CSS
@@ -21,6 +21,32 @@ const LoginPage = () => {
   const { login } = useAuth(); // Obtiene la función login del contexto
   const navigate = useNavigate();
   const [apiError, setApiError] = useState<string | null>(null); // Para errores del backend
+  const location = useLocation();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Obtener la URL base de la API desde las variables de entorno
+  const API_URL =
+    process.env.REACT_APP_API_URL || "http://localhost:3000/api/v1";
+
+    useEffect(() => {
+      const params = new URLSearchParams(location.search);
+      const token = params.get("token");
+
+      if (token) {
+        localStorage.setItem("token", token);
+
+        apiClient
+          .get("/users/me")
+          .then((res) => {
+            login(token, res.data);
+            toast.success(`¡Acceso con Google exitoso!`);
+            navigate("/dashboard");
+          })
+          .catch(() => {
+            toast.error("Error al validar sesión de Google.");
+          });
+      }
+    }, [location, login, navigate]);
 
   const onSubmit: SubmitHandler<LoginFormInputs> = async (
     data: LoginFormInputs
@@ -42,6 +68,12 @@ const LoginPage = () => {
       toast.error(apiError || "Error al iniciar sesión");
     }
   };
+
+  const handleGoogleLogin = () => {
+    // USA LA VARIABLE DE ENTORNO, NO LOCALHOST
+    window.location.href = `${API_URL}/auth/google`;
+  };
+
 
   return (
     <div className="mockup-container active">
