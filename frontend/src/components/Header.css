@@ -1,72 +1,133 @@
-/* frontend/src/components/Header.css */
+/* Header moderno con efecto Glassmorphism */
 .app-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 30px;
-    background-color: #ffffff;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+
+    /* Dimensiones y Posición */
+    width: 100%;
+    height: 70px;
+    padding: 0 5%;
+    /* Margen lateral porcentual para respirar */
+    box-sizing: border-box;
+
+    /* Sticky + Visual */
     position: sticky;
-    /* O fixed si quieres que siempre esté visible */
     top: 0;
     z-index: 1000;
+
+    /* El efecto "no cuadrado" */
+    background-color: rgba(255, 255, 255, 0.95);
+    /* Casi opaco */
+    backdrop-filter: blur(10px);
+    /* Efecto de cristal */
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+    /* Borde sutil */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+    /* Sombra muy suave */
 }
 
+/* Logo */
 .header-logo {
-    font-size: 1.5em;
-    font-weight: bold;
+    font-size: 1.5rem;
+    font-weight: 800;
     color: #667eea;
     text-decoration: none;
+    letter-spacing: -0.5px;
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
+.header-logo:hover {
+    transform: scale(1.02);
+}
+
+/* Navegación */
 .header-nav {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 25px;
+    /* Más espacio entre elementos */
 }
 
+/* Saludo de usuario */
 .user-greeting {
-    font-weight: 500;
-    color: #2d3748;
+    font-weight: 600;
+    color: #4a5568;
+    font-size: 0.95rem;
+    background: #f7fafc;
+    padding: 6px 12px;
+    border-radius: 20px;
+    /* Pill shape */
+    border: 1px solid #edf2f7;
 }
 
+/* Enlaces de texto (Login) */
 .nav-link {
     color: #4a5568;
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 0.95rem;
     transition: color 0.2s;
+    position: relative;
 }
 
-.nav-link:hover {
+.nav-link:not(.register-link):hover {
     color: #667eea;
 }
 
+/* Botón CTA (Registrarse) - Redondo y moderno */
 .register-link {
-    background-color: #667eea;
-    color: white;
-    padding: 8px 15px;
-    border-radius: 20px;
-    transition: background-color 0.2s;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+    padding: 10px 24px;
+    border-radius: 50px;
+    /* Totalmente redondo (Pill) */
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .register-link:hover {
-    background-color: #5a6baa;
-    color: white;
-    /* Asegurar que el color no cambie al hacer hover */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
 }
 
-
+/* Botón Logout - Sutil pero claro */
 .logout-button {
     background-color: transparent;
-    border: 1px solid #e53e3e;
+    border: none;
     color: #e53e3e;
-    padding: 8px 15px;
-    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
     cursor: pointer;
-    font-weight: 500;
-    transition: all 0.2s;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: background 0.2s;
 }
 
 .logout-button:hover {
     background-color: #fff5f5;
+}
+
+/* Responsive: Ajustes para móvil */
+@media (max-width: 768px) {
+    .app-header {
+        padding: 0 20px;
+    }
+
+    .user-greeting {
+        display: none;
+        /* Ocultar saludo en móvil si falta espacio */
+    }
+
+    .header-nav {
+        gap: 15px;
+    }
+
+    .register-link {
+        padding: 8px 16px;
+        font-size: 0.9rem;
+    }
 }
