@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
-import { Link, useLocation, useNavigate } from "react-router-dom"; // Para el enlace de registro
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import "./AuthPage.css";
@@ -11,7 +11,8 @@ interface LoginFormInputs {
   password: string;
 }
 
-const LoginPage = () => {
+// Añadimos el tipo de retorno explícito para asegurar que TS sepa que es un componente
+const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
@@ -19,55 +20,25 @@ const LoginPage = () => {
   } = useForm<LoginFormInputs>();
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [apiError, setApiError] = useState<string | null>(null); // Para errores del backend
   const location = useLocation();
+
+  // Estados
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Obtener la URL base de la API desde las variables de entorno
   const API_URL =
     process.env.REACT_APP_API_URL || "http://localhost:3000/api/v1";
 
-    useEffect(() => {
-      const params = new URLSearchParams(location.search);
-      const token = params.get("token");
-
-      if (token) {
-        localStorage.setItem("token", token);
-
-        apiClient
-          .get("/users/me")
-          .then((res) => {
-            login(token, res.data);
-            toast.success(`¡Acceso con Google exitoso!`);
-            navigate("/dashboard");
-          })
-          .catch(() => {
-            toast.error("Error al validar sesión de Google.");
-          });
-      }
-    }, [location, login, navigate]);
-
-  const onSubmit: SubmitHandler<LoginFormInputs> = async (
-    data: LoginFormInputs
-  ) => {
-    setApiError(null); // Limpia errores previos
-  const location = useLocation(); // Para leer la URL
-  const [isLoading, setIsLoading] = useState(false);
-
-  // 1. Detectar token de Google al cargar
+  // 1. Efecto para manejar el Login con Google (Token en URL)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const token = params.get("token");
 
     if (token) {
-      // Si hay token, guardamos y redirigimos
-      // Nota: En este flujo simple, no tenemos el objeto 'user' completo aún,
-      // pero el AuthContext o el Dashboard cargarán los datos con el token.
       localStorage.setItem("token", token);
-      // Forzamos una recarga rápida o llamada a /me para obtener datos del usuario
-      // Para simplificar, asumimos que login() acepta solo token o recargamos
 
-      // Simular objeto usuario temporal o hacer fetch
+      // Validamos el token obteniendo el perfil
       apiClient
         .get("/users/me")
         .then((res) => {
@@ -81,8 +52,11 @@ const LoginPage = () => {
     }
   }, [location, login, navigate]);
 
+  // 2. Manejador de Login con Email/Password
   const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
     setIsLoading(true);
+    setApiError(null);
+
     try {
       const response = await apiClient.post("/auth/login", data);
       login(response.data.access_token, response.data.user);
@@ -90,18 +64,17 @@ const LoginPage = () => {
       navigate("/dashboard");
     } catch (error: any) {
       const msg = error.response?.data?.message || "Credenciales incorrectas.";
+      setApiError(msg);
       toast.error(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-
+  // 3. Manejador de Botón Google
   const handleGoogleLogin = () => {
-    // USA LA VARIABLE DE ENTORNO, NO LOCALHOST
     window.location.href = `${API_URL}/auth/google`;
   };
-
 
   return (
     <div className="auth-page-container animate-fade-in">
@@ -133,8 +106,9 @@ const LoginPage = () => {
             <p>Ingresa tus credenciales para continuar.</p>
           </div>
 
+          {apiError && <div className="api-error-banner">⚠️ {apiError}</div>}
+
           <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
-            {/* ... Inputs de Email y Password (sin cambios) ... */}
             <div className="form-group">
               <label htmlFor="email">Correo Electrónico</label>
               <input
@@ -166,7 +140,6 @@ const LoginPage = () => {
             </button>
           </form>
 
-          {/* Botón de Google Funcional */}
           <div className="divider">
             <span>o continúa con</span>
           </div>
@@ -208,5 +181,5 @@ const LoginPage = () => {
     </div>
   );
 };
-}
+
 export default LoginPage;

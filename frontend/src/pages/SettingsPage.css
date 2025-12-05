@@ -1,11 +1,15 @@
-/* Estilos Generales y Comunes (Basados en tu Maqueta) */
-
+/* Estilos Generales */
 .settings-container {
     padding: 40px 60px;
     max-width: 900px;
     margin: 0 auto;
     background: #f7fafc;
     min-height: calc(100vh - 70px);
+    font-family: 'Segoe UI', sans-serif;
+    /* Prevención de desbordes */
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 .settings-header {
@@ -29,6 +33,9 @@
     border-radius: 15px;
     margin-bottom: 30px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    /* Asegura que la tarjeta no sea más ancha que la pantalla */
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .settings-section h3 {
@@ -49,6 +56,8 @@
 .info-field {
     padding: 10px 0;
     border-bottom: 1px dashed #e2e8f0;
+    /* Asegura que el contenido largo no rompa la celda */
+    min-width: 0;
 }
 
 .info-label {
@@ -63,24 +72,30 @@
     font-size: 1.1em;
     color: #2d3748;
     font-weight: 600;
+    word-wrap: break-word;
+    /* Romper textos largos */
 }
 
 .info-input,
 .toggle-select {
     width: 100%;
-    padding: 8px 10px;
+    padding: 10px;
     border: 1px solid #e2e8f0;
-    border-radius: 5px;
+    border-radius: 8px;
     font-size: 1em;
+    box-sizing: border-box;
+    /* Crucial para inputs */
 }
 
-/* Item de Configuración (Notificaciones, etc.) */
+/* Item de Configuración */
 .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
+    padding: 20px 0;
     border-bottom: 1px solid #e2e8f0;
+    gap: 20px;
+    /* Espacio mínimo entre texto y botón */
 }
 
 .setting-item:last-child {
@@ -88,22 +103,27 @@
 }
 
 .setting-info {
-    max-width: 70%;
+    flex: 1;
+    /* Ocupa el espacio disponible */
+    min-width: 0;
+    /* Permite encogerse si es necesario */
+    padding-right: 10px;
 }
 
 .setting-title {
     font-weight: 600;
     color: #2d3748;
     margin-bottom: 5px;
+    font-size: 1.1rem;
 }
 
 .setting-description {
-    font-size: 0.9em;
+    font-size: 0.95rem;
     color: #718096;
     line-height: 1.4;
 }
 
-/* Toggle Switch (Copiado de tu CSS original) */
+/* Toggle Switch */
 .toggle-switch {
     width: 50px;
     height: 26px;
@@ -113,6 +133,7 @@
     cursor: pointer;
     transition: background 0.3s;
     flex-shrink: 0;
+    /* No dejes que se aplaste */
 }
 
 .toggle-switch.active {
@@ -140,10 +161,10 @@
 .danger-zone {
     padding: 30px;
     border: 2px solid #f6ad55;
-    /* Naranja/Advertencia */
     background: #fffaf0;
     border-radius: 15px;
     margin-bottom: 30px;
+    box-sizing: border-box;
 }
 
 .danger-zone h4 {
@@ -152,16 +173,28 @@
     margin-bottom: 15px;
 }
 
-/* Botones de Estilo */
-.btn-danger {
-    background: #e53e3e;
-    color: white;
-    border: none;
-    padding: 12px 25px;
-    border-radius: 25px;
+/* Botones */
+.btn-danger,
+.btn-edit,
+.btn-secondary,
+.btn-primary {
+    padding: 10px 20px;
+    border-radius: 30px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    /* Evita que el texto del botón se parta */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+}
+
+.btn-danger {
+    background: #e53e3e;
+    color: white;
 }
 
 .btn-danger:hover {
@@ -174,16 +207,79 @@
     background: transparent;
     color: #667eea;
     border: 2px solid #667eea;
-    padding: 10px 20px;
-    border-radius: 30px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
-    width: auto;
 }
 
 .btn-edit:hover,
 .btn-secondary:hover {
     background: #eef2ff;
     transform: translateY(-1px);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+/* --- RESPONSIVE (MÓVIL) --- */
+@media (max-width: 768px) {
+    .settings-container {
+        padding: 20px 15px;
+        /* Menos padding lateral */
+    }
+
+    .settings-header h2 {
+        font-size: 1.8rem;
+    }
+
+    .settings-section {
+        padding: 20px;
+        /* Menos padding interno */
+    }
+
+    /* Grid de perfil a 1 columna */
+    .profile-info-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    /* Items de configuración apilados */
+    .setting-item {
+        flex-direction: column;
+        /* Uno debajo del otro */
+        align-items: flex-start;
+        /* Alineado a la izquierda */
+        gap: 15px;
+    }
+
+    .setting-info {
+        max-width: 100%;
+        /* Texto ocupa todo el ancho */
+        padding-right: 0;
+    }
+
+    /* Botones y Selects al 100% de ancho para facilitar el toque */
+    .btn-edit,
+    .btn-secondary,
+    .btn-danger,
+    .btn-primary,
+    .toggle-select {
+        width: 100% !important;
+        box-sizing: border-box;
+        text-align: center;
+        justify-content: center;
+    }
+
+    /* El switch se ve mejor alineado a la derecha o izquierda? 
+       En móvil, a menudo es mejor tenerlo accesible. 
+       Lo dejaremos a la izquierda para consistencia con el bloque, 
+       o podemos usar 'align-self: flex-end' */
+    .toggle-switch {
+        align-self: flex-start;
+    }
+
+    /* Ajuste para el contenedor del botón de guardar perfil */
+    .settings-section>div[style*="text-align: right"] {
+        text-align: center !important;
+        margin-top: 20px;
+    }
 }

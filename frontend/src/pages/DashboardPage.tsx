@@ -113,7 +113,7 @@ const DashboardPage = () => {
             Aquí tienes el resumen de tu futuro profesional.
           </p>
         </div>
-        <Link to="/profile" className="btn-primary" style={{ width: "auto" }}>
+        <Link to="/dashboard/profile" className="btn-primary" style={{ width: "auto" }}>
           Mi Perfil
         </Link>
       </div>

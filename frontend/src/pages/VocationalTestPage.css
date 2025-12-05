@@ -227,6 +227,7 @@
 .test-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 15px;
 }
 
 .btn-primary {
@@ -239,6 +240,8 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     transition: transform 0.2s, box-shadow 0.2s;
+    /* Asegura que el texto no se rompa mal */
+    white-space: nowrap;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -261,6 +264,8 @@
     border-radius: 30px;
     font-weight: 600;
     cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
 }
 
 .btn-secondary:hover {
@@ -282,6 +287,7 @@
         transform: translateY(0);
     }
 }
+
 .question-header-row {
     display: flex;
     justify-content: space-between;
@@ -308,4 +314,55 @@
     background-color: #dcfce7;
     /* Verde claro */
     color: #15803d;
+}
+
+/* --- RESPONSIVE (MÓVIL) --- */
+@media (max-width: 768px) {
+    .test-container {
+        padding: 20px 15px;
+    }
+
+    .question-card {
+        padding: 25px 20px;
+    }
+
+    .question-text {
+        font-size: 1.2rem;
+        /* Texto más pequeño en móvil */
+    }
+
+    /* Forzar que los botones de acción se apilen si no caben */
+    .test-actions {
+        flex-direction: column-reverse;
+        /* Siguiente arriba en móvil si hay varios */
+        width: 100%;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        width: 100%;
+        /* Botones de ancho completo */
+        padding: 14px;
+        box-sizing: border-box;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    /* Ajuste específico para la tarjeta de resumen de carrera */
+    /* Seleccionamos los botones dentro del div flex del resumen */
+    .question-card>div[style*="display: flex"] {
+        flex-direction: column;
+        /* Apilar botones */
+        gap: 15px;
+    }
+
+    .age-input {
+        width: 100px;
+        font-size: 2.5rem;
+    }
+
+    .option {
+        padding: 15px;
+        font-size: 1rem;
+    }
 }
