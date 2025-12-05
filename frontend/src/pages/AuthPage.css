@@ -1,23 +1,331 @@
-/* frontend/src/pages/AuthPage.css */
+/* Contenedor Global centrado */
+.auth-page-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8fafc;
+    /* Un fondo un poco más limpio */
+    padding: 40px;
+    /* Más espacio alrededor */
+    font-family: 'Segoe UI', sans-serif;
+}
 
-/* Estilo para inputs con error */
+/* Tarjeta Principal (Más grande en PC) */
+.auth-card {
+    display: flex;
+    background: white;
+    border-radius: 24px;
+    /* Bordes más redondeados */
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    /* Sombra más suave y difusa */
+    overflow: hidden;
+    width: 100%;
+
+    /* --- CAMBIO CLAVE: TAMAÑO AUMENTADO --- */
+    max-width: 1400px;
+    /* Antes 1000px, ahora llena más pantalla en HD */
+    min-height: 80vh;
+    /* Ocupa al menos el 80% del alto de la pantalla */
+    /* -------------------------------------- */
+}
+
+/* --- LADO IZQUIERDO (Visual) --- */
+.auth-visual-side {
+    flex: 1.2;
+    /* Le damos un poco más de peso visual (55% vs 45%) */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    color: white;
+}
+
+/* Patrón de fondo */
+.auth-visual-side::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 20%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 20%);
+    pointer-events: none;
+}
+
+.visual-content {
+    z-index: 2;
+    max-width: 500px;
+    /* Contenido más ancho */
+}
+
+.visual-content h2 {
+    font-size: 3rem;
+    /* Título más grande */
+    line-height: 1.1;
+    margin-bottom: 25px;
+    font-weight: 800;
+}
+
+.visual-content p {
+    font-size: 1.25rem;
+    /* Texto más legible */
+    margin-bottom: 50px;
+    opacity: 0.95;
+    line-height: 1.6;
+}
+
+.benefits-list {
+    list-style: none;
+    padding: 0;
+}
+
+.benefits-list li {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 30px;
+    gap: 20px;
+}
+
+.benefit-icon {
+    background: rgba(255, 255, 255, 0.25);
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    /* Iconos más suaves */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    backdrop-filter: blur(5px);
+}
+
+.benefits-list strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.benefits-list span {
+    font-size: 1rem;
+    opacity: 0.85;
+}
+
+/* --- LADO DERECHO (Formulario) --- */
+.auth-form-side {
+    flex: 1;
+    padding: 60px;
+    /* Más aire interno */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: white;
+}
+
+.form-header {
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+.auth-logo {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #667eea;
+    margin-bottom: 15px;
+    display: inline-block;
+}
+
+.form-header h2 {
+    font-size: 2.2rem;
+    color: #2d3748;
+    margin-bottom: 10px;
+}
+
+.form-header p {
+    color: #718096;
+    font-size: 1.1rem;
+}
+
+/* Inputs - Más grandes y amigables */
+.form-group {
+    margin-bottom: 24px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 10px;
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.form-input {
+    width: 100%;
+    padding: 14px 18px;
+    /* Inputs más altos */
+    border: 2px solid #edf2f7;
+    border-radius: 12px;
+    /* Bordes más curvos */
+    font-size: 1.05rem;
+    transition: all 0.3s ease;
+    outline: none;
+    box-sizing: border-box;
+    background-color: #f9fafb;
+}
+
+.form-input:focus {
+    border-color: #667eea;
+    background-color: #fff;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    /* Focus ring suave */
+}
+
 .input-error {
-    border-color: #e53e3e;
-    /* Rojo */
-    background-color: #fff5f5;
-    /* Rojo muy claro */
-}
-
-.input-error:focus {
-    border-color: #c53030;
-    /* Rojo más oscuro */
+    border-color: #fc8181;
     background-color: #fff5f5;
 }
 
-/* Estilo para mensajes de error debajo de los inputs */
-.error-message {
+.error-msg {
+    color: #e53e3e;
+    font-size: 0.9rem;
+    margin-top: 6px;
+}
+
+/* Checkbox */
+.form-check {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 30px;
+    font-size: 0.95rem;
+    color: #4a5568;
+}
+
+.form-check input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: #667eea;
+    cursor: pointer;
+}
+
+/* Buttons */
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    letter-spacing: 0.5px;
+}
+
+.btn-block {
+    width: 100%;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Redes Sociales */
+.social-buttons button {
+    height: 50px;
+    /* Botones sociales más altos */
+}
+
+/* Footer & Links */
+.auth-footer {
+    text-align: center;
+    margin-top: 30px;
+    font-size: 1rem;
+    color: #718096;
+}
+
+.link-highlight {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+    margin-left: 5px;
+}
+
+.link-highlight:hover {
+    text-decoration: underline;
+}
+
+.api-error-banner {
+    background-color: #fff5f5;
     color: #c53030;
-    /* Rojo oscuro */
-    font-size: 0.8em;
-    margin-top: 5px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #fed7d7;
+    margin-bottom: 25px;
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+/* --- ANIMACIONES --- */
+.animate-fade-in {
+    animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 1024px) {
+    .auth-card {
+        max-width: 100%;
+        min-height: auto;
+        flex-direction: column;
+        /* En tablet se apila */
+    }
+
+    .auth-visual-side {
+        padding: 40px;
+        text-align: center;
+    }
+
+    .auth-form-side {
+        padding: 40px 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .auth-page-container {
+        padding: 10px;
+    }
+
+    .auth-card {
+        border-radius: 0;
+        /* Pantalla completa en móvil */
+        box-shadow: none;
+    }
+
+    .benefits-list {
+        display: none;
+    }
 }

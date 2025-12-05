@@ -20,6 +20,8 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - NODE_ENV=development
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 
     command: npm run start:dev 
 

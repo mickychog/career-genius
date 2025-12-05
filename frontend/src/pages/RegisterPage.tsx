@@ -25,9 +25,6 @@ const RegisterPage = () => {
   const navigate = useNavigate();
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // Obtener la URL base de la API
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
-
   const onSubmit: SubmitHandler<RegisterFormInputs> = async (
     data: RegisterFormInputs
   ) => {
@@ -49,15 +46,6 @@ const RegisterPage = () => {
       toast.error(apiError || "Error al crear la cuenta");
     }
   };
-
-    const handleSocialLogin = (provider: string) => {
-      if (provider === "Google") {
-        // USA LA VARIABLE DE ENTORNO
-        window.location.href = `${API_URL}/auth/google`;
-      } else {
-        toast.info(`El inicio con ${provider} estará disponible pronto.`);
-      }
-    };
 
   return (
     <div className="mockup-container active">

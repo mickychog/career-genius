@@ -1,7 +1,10 @@
 import axios from 'axios';
 
-// Tu URL de Render (con el prefijo de API si lo usaste)
-const API_BASE_URL = process.env.REACT_APP_API_URL;
+// Lógica para seleccionar la URL:
+// 1. Si existe la variable de entorno (Producción/Configuración manual), usa esa.
+// 2. Si no, usa localhost (Desarrollo por defecto).
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
