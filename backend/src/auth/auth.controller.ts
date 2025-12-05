@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
@@ -9,6 +9,7 @@ import { LoginResponseDto } from './dto/login-response.dto';
 import { Roles } from './decorators/roles.decorator';
 import { UserRole } from '../users/schemas/user.schema';
 import { RolesGuard } from './guards/roles.guard';
+import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('auth') // Agrupa endpoints en Swagger
 @Controller('auth')
@@ -54,5 +55,26 @@ export class AuthController {
     @ApiOperation({ summary: 'Ruta de prueba solo para administradores' })
     getAdminData(@Request() req) {
         return { message: 'Bienvenido, Administrador', user: req.user };
+    }
+
+    // --- ENDPOINTS DE GOOGLE ---
+
+    // 1. Inicia el flujo: Redirige al usuario a Google
+    @Get('google')
+    @UseGuards(AuthGuard('google'))
+    async googleAuth(@Req() req) {
+        // El Guard maneja la redirección automáticamente
+    }
+
+    // 2. Callback: Google devuelve al usuario aquí
+    @Get('google/callback')
+    @UseGuards(AuthGuard('google'))
+    async googleAuthRedirect(@Req() req, @Res() res) {
+        // req.user contiene el usuario validado por GoogleStrategy -> AuthService
+        const result = await this.authService.loginWithGoogle(req.user);
+
+        // Redirigimos al Frontend pasando el token en la URL
+        // En producción, esto debería ser una variable de entorno FRONTEND_URL
+        res.redirect(`http://localhost:3001/login?token=${result.access_token}`);
     }
 }

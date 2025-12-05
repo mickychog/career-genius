@@ -11,40 +11,27 @@ export class AuthService {
         private jwtService: JwtService,
     ) { }
 
-    // Usado por LocalStrategy
+    // ... validateUser ...
     async validateUser(email: string, pass: string): Promise<any> {
         const user = await this.usersService.findOneByEmail(email);
-
-        if (!user) {
-            return null;
-        }
-
+        if (!user) return null;
         const isPasswordValid = await user.comparePassword(pass);
-
-        if (!isPasswordValid) {
-            return null;
-        }
-
-        const { password, ...result } = user.toObject();
-        return result;
+        if (!isPasswordValid) return null;
+        return user;
     }
 
-    // Usado por AuthController
-    async login(user: any) {
-        // Verificar si user tiene el método toObject (es un documento de Mongoose)
-        const userObj = typeof user.toObject === 'function' ? user.toObject() : user;
+    // ... login ...
+    async login(user: User) {
+        // Aseguramos tipado para evitar errores de _id
+        const userDoc = user as any;
+        const payload = { email: user.email, sub: userDoc._id.toString(), role: user.role };
 
-        const payload = {
-            email: userObj.email,
-            sub: userObj._id?.toString ? userObj._id.toString() : String(userObj._id),
-            role: userObj.role
-        };
-
-        const { password, ...userWithoutPassword } = userObj;
+        // Eliminar password del objeto retornado
+        // const { password, ...userWithoutPassword } = user.toObject(); // Si falla, usa userDoc
 
         return {
             access_token: this.jwtService.sign(payload),
-            user: userWithoutPassword,
+            user: { email: user.email, name: user.name, role: user.role }, // Retorno simple
         };
     }
 
@@ -61,5 +48,10 @@ export class AuthService {
         // Convertir a objeto plano
         const userObject = user.toObject();
         return this.login(userObject);
+    }
+
+    async loginWithGoogle(googleUser: any) {
+        const user = await this.usersService.findOrCreateGoogleUser(googleUser);
+        return this.login(user);
     }
 }

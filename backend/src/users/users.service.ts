@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
+import { User, UserDocument, UserRole } from './schemas/user.schema';
 import { CreateUserDto } from '../auth/dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { TestSession } from '../vocational-test/schemas/test-session.schema'; 
@@ -63,6 +63,29 @@ export class UsersService {
             throw new NotFoundException('Usuario no encontrado.');
         }
         return user as unknown as User & Document;
+    }
+
+    // --- NUEVO MÉTODO PARA GOOGLE ---
+    async findOrCreateGoogleUser(googleUser: any): Promise<UserDocument> {
+        const { email, firstName, lastName } = googleUser;
+
+        // 1. Buscar si ya existe
+        let user = await this.userModel.findOne({ email }).exec();
+
+        if (!user) {
+            // 2. Si no existe, crearlo
+            console.log(`Creando usuario nuevo desde Google: ${email}`);
+            user = new this.userModel({
+                email,
+                name: `${firstName} ${lastName}`,
+                // Generamos una contraseña aleatoria porque Google maneja la auth
+                password: Math.random().toString(36).slice(-8),
+                role: UserRole.STUDENT, // Rol por defecto
+                // Podrías agregar un campo 'isGoogleAccount: true' en tu esquema si quisieras
+            });
+            await user.save();
+        }
+        return user;
     }
 
     // --- ESTADÍSTICAS DEL DASHBOARD ACTUALIZADAS ---
