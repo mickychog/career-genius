@@ -85,7 +85,7 @@ if (type === 'GENERAL') {
                 return [];
             } else if (type === 'SPECIFIC' && category) {
                 prompt = `
-Genera ${count} preguntas de opción múltiple para un estudiante de secundaria en Bolivia.
+Genera ${count} preguntas de opción múltiple (con 5 opciones) para un estudiante de secundaria en Bolivia.
 Categoría: **${category}**.
 ${boliviaContext}
 
@@ -101,7 +101,7 @@ Asegúrate de que las 4 opciones sean distintas actividades o niveles de agrado,
 Genera ${count} preguntas para diferenciar SUB-ÁREAS dentro de: **${category}**.
 ${boliviaContext}
 
-Objetivo: Saber si el estudiante prefiere, por ejemplo, Ingeniería Civil vs Sistemas (si es TEC), o Medicina vs Veterinaria (si es SALUD).
+Objetivo: Saber si el estudiante prefiere, por ejemplo, Ingeniería Civil vs Sistemas (si es TEC) y otras opciones similares, o Medicina vs Veterinaria (si es SALUD).
 
 Requisitos JSON:
 [ { "question": "Dilema de preferencia...", "options": ["Prefiero la opción de [Subárea 1]", "Prefiero [Subárea 2]", "Prefiero [Subárea 3]", "Prefiero [Subárea 4]"] } ]

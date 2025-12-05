@@ -326,14 +326,33 @@ export class VocationalTestService {
         session.currentPhase = 'CONFIRMATION';
     }
 
+    // --- 4. FINALIZAR TEST (CORREGIDO CON VALIDACIONES) ---
     async finishTest(sessionId: string, userId: string): Promise<TestSession> {
+        // Primero obtenemos la sesión SIN popular para verificar el estado
+        const sessionCheck = await this.testSessionModel.findById(sessionId).exec();
+
+        if (!sessionCheck || sessionCheck.user.toString() !== userId || sessionCheck.isCompleted) {
+            throw new BadRequestException('Sesión inválida o ya completada.');
+        }
+
+        // ✅ VALIDACIÓN DE SEGURIDAD:
+        // Si la fase NO es CONFIRMATION, significa que el usuario intentó saltarse pasos.
+        if (sessionCheck.currentPhase !== 'CONFIRMATION') {
+            this.logger.warn(`Intento de finalizar test prematuramente (Fase ${sessionCheck.currentPhase}). Bloqueado.`);
+            throw new BadRequestException('El test aún no ha terminado. Faltan fases por completar.');
+        }
+
+        // ✅ VALIDACIÓN DE RESPUESTAS:
+        // Deben estar todas las preguntas respondidas
+        if (sessionCheck.answers.length < sessionCheck.questions.length) {
+            this.logger.warn(`Intento de finalizar con preguntas pendientes (${sessionCheck.answers.length}/${sessionCheck.questions.length}). Bloqueado.`);
+            throw new BadRequestException('Aún tienes preguntas por responder.');
+        }
+
+        // Si pasa las validaciones, populamos y procesamos con IA
         const session = await this.testSessionModel.findById(sessionId)
             .populate('answers.question')
             .exec() as TestSession & Document;
-
-        if (!session || session.user.toString() !== userId || session.isCompleted) {
-            throw new BadRequestException('Sesión inválida o ya completada.');
-        }
 
         const answersData = session.answers.map(answer => {
             const questionDoc = answer.question as any;
@@ -348,12 +367,17 @@ export class VocationalTestService {
         const answersText = JSON.stringify(answersData, null, 2);
 
         try {
+            this.logger.log(`Enviando ${answersData.length} respuestas a la IA...`);
             const analysisResult = await this.aiService.analyzeTestResults(answersText);
+
             session.resultProfile = analysisResult.profile;
             session.analysisReport = analysisResult.report;
+
             if (analysisResult.careers && analysisResult.careers.length > 0) {
                 session.recommendedCareers = analysisResult.careers;
                 session.selectedCareer = analysisResult.careers[0].name;
+            } else {
+                throw new Error("IA devolvió lista vacía");
             }
         } catch (error) {
             this.logger.error('Error IA (Fallback):', error);
@@ -362,10 +386,15 @@ export class VocationalTestService {
             session.recommendedCareers = [{ name: "Orientación General", duration: "Flexible", reason: "Fallback" }];
             session.selectedCareer = "Orientación General";
         }
+
         session.isCompleted = true;
         session.completedAt = new Date();
+        // Marcar fase final para consistencia
+        session.currentPhase = 'FINISHED';
+
         return session.save();
     }
+
 
     private async getSessionWithQuestions(session: TestSession & Document): Promise<StartTestResponse> {
         const populatedSession = await session.populate<{ questions: Question[] }>('questions');
