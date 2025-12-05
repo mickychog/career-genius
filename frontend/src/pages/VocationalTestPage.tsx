@@ -76,24 +76,44 @@ const VocationalTestPage = () => {
 
   // Inicia o Recarga el test (trae todas las preguntas acumuladas hasta el momento)
   const startOrResumeTest = async () => {
-      setViewMode('loading');
-      try {
-        const response = await apiClient.post('/vocational-test/start');
-        setSessionId(response.data.sessionId);
-        setQuestions(response.data.questions);
-        setViewMode('test');
-        
-        // Si es un test nuevo, nos aseguramos de empezar desde el principio
-        if (response.data.questions.length <= 6 && currentStep === 0) {
-             // Mantenemos en 0 para pedir demográficos
-        } 
-        // (Opcional: Si quisieras reanudar en la última pregunta sin responder, 
-        // necesitarías lógica extra aquí para calcular 'currentStep' basado en 'answers.length')
-        
-      } catch (err) {
-        toast.error('Error conectando con el test.');
-        setViewMode('test');
+    setViewMode("loading");
+    try {
+      const response = await apiClient.post("/vocational-test/start");
+      const { sessionId, questions, answersCount, userAge, userGender } =
+        response.data;
+
+      setSessionId(sessionId);
+      setQuestions(questions);
+
+      // 1. Restaurar datos demográficos si existen
+      if (userAge) setAge(String(userAge));
+      if (userGender) setGender(userGender);
+
+      // 2. Calcular el paso (Step) correcto
+      // Pasos 0 y 1 son demográficos. Las preguntas empiezan en Step 2.
+      // Si ya tiene demográficos y N respuestas, salta:
+      // - Si no tiene demográficos: Step 0
+      // - Si tiene demográficos pero 0 respuestas: Step 2
+      // - Si tiene demográficos y 3 respuestas: Step 2 + 3 = 5 (Va a la pregunta 4)
+
+      let initialStep = 0;
+      if (userAge) initialStep = 1;
+      if (userAge && userGender) initialStep = 2;
+
+      if (answersCount > 0) {
+        initialStep = 2 + answersCount;
       }
+
+      console.log(
+        `[RESUME] Respuestas previas: ${answersCount}. Saltando al paso: ${initialStep}`
+      );
+      setCurrentStep(initialStep);
+
+      setViewMode("test");
+    } catch (err) {
+      toast.error("Error conectando con el test.");
+      setViewMode("test");
+    }
   };
 
   // Función para refrescar preguntas en mitad del test (Transición de Fase)
@@ -220,7 +240,17 @@ const VocationalTestPage = () => {
                   </div>
                   <div style={{display: 'flex', gap: '15px', justifyContent: 'center'}}>
                       <button className="btn-secondary" onClick={() => navigate(`/dashboard/results/${statusData.sessionId}`)}>Ver Detalles</button>
-                      <button className="btn-primary" onClick={startNewTestSession}>Realizar Nuevo Test</button>
+                      <button className="btn-primary" onClick={() => {
+                          // Para reiniciar, forzamos un nuevo sessionId o limpiamos el estado
+                          // Por ahora, simplemente llamamos a startNew (que reanudará el incompleto o creará nuevo si el anterior está completo)
+                          // if(window.confirm("¿Quieres empezar un test nuevo desde cero?")) {
+                          //      // Aquí idealmente llamarías a un endpoint para 'archivar' el test anterior si quisieras forzar cero
+                          //      // Pero como la lógica es 'resume if incomplete', y este está completo (viewMode summary),
+                          //      // startOrResumeTest creará uno nuevo automáticamente.
+                          //     startOrResumeTest();
+                          // }
+                          startOrResumeTest();
+                      }}>Realizar Nuevo Test</button>
                   </div>
               </div>
           </div>
@@ -231,7 +261,7 @@ const VocationalTestPage = () => {
   const questionIndex = currentStep - 2;
   const currentQuestion = questions[questionIndex];
 
-  // Cálculo de progreso visual (Aproximado: 20 preguntas + 2 demográficas = 22 pasos)
+ 
   const totalEstimatedSteps = 18; 
   const progress = Math.min(((currentStep + 1) / totalEstimatedSteps) * 100, 100);
 
@@ -282,13 +312,22 @@ const VocationalTestPage = () => {
                           // Manejar si options es array de strings o de objetos (general)
                           const text = typeof opt === 'string' ? opt : opt.text || "Opción";
                           return (
-                              <div 
-                                key={idx} 
-                                className={`option ${selectedOptionIndex === idx ? 'selected' : ''}`}
-                                onClick={() => handleOptionClick(idx)}
-                              >
-                                  <span className="option-letter">{String.fromCharCode(65+idx)}</span> {text}
-                              </div>
+                            <div
+                              key={idx}
+                              className={`option ${
+                                selectedOptionIndex === opt.originalIndex
+                                  ? "selected"
+                                  : ""
+                              }`}
+                              onClick={() =>
+                                handleOptionClick(opt.originalIndex)
+                              }
+                            >
+                              <span className="option-letter">
+                                {String.fromCharCode(65 + idx)}
+                              </span>{" "}
+                              {text}
+                            </div>
                           );
                       })}
                   </div>

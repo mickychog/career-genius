@@ -27,6 +27,14 @@ export class SkillsDevelopmentService {
             throw new NotFoundException('No se encontró un test vocacional completado.');
         }
 
+        // Devolver caché si existe
+        if (lastSession.savedCourses && lastSession.savedCourses.length > 0) {
+            return {
+                career: lastSession.selectedCareer || lastSession.recommendedCareers[0].name,
+                courses: lastSession.savedCourses as CourseRecommendation[]
+            };
+        }
+
         // 2. DETERMINAR LA CARRERA OBJETIVO (Lógica Robusta)
         // Prioridad 1: Carrera seleccionada manualmente (guardada en BD)
         // Prioridad 2: Primera carrera recomendada (si existe el array)
@@ -49,6 +57,11 @@ export class SkillsDevelopmentService {
         // 4. Pedir recomendaciones de cursos a la IA
         const courses = await this.aiService.getSkillRecommendations(targetCareer);
 
+        await this.testSessionModel.findByIdAndUpdate(
+            lastSession._id,
+            { $set: { savedCourses: courses } }
+        ).exec();
+        
         return {
             career: targetCareer,
             courses

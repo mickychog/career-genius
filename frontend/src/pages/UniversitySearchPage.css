@@ -223,3 +223,32 @@
     color: #4a5568;
     border: 1px solid #e2e8f0;
 }
+
+.filter-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-container label {
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.region-select {
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    font-size: 1rem;
+    color: #2d3748;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.region-select:focus {
+    border-color: #667eea;
+}

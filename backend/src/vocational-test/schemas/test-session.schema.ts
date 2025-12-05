@@ -69,6 +69,13 @@ export class TestSession extends Document {
 
     @Prop({ type: String })
     selectedCareer?: string;
+
+    @Prop({ type: [Object], default: [] })
+    savedUniversities: any[];
+
+    @Prop({ type: [Object], default: [] })
+    savedCourses: any[];
+
 }
 
 export const TestSessionSchema = SchemaFactory.createForClass(TestSession);

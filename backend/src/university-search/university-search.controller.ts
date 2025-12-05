@@ -1,7 +1,7 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request, Query } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UniversitySearchService } from './university-search.service';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('university-search')
 @ApiBearerAuth()
@@ -12,10 +12,15 @@ export class UniversitySearchController {
     @UseGuards(JwtAuthGuard)
     @Get('recommendations')
     @ApiOperation({ summary: 'Obtiene universidades recomendadas basadas en el último test vocacional' })
+    @ApiQuery({ name: 'region', required: false, description: 'Departamento o región (ej. La Paz)', example: 'La Paz' })
     @ApiResponse({ status: 200, description: 'Lista de universidades obtenida.' })
     @ApiResponse({ status: 404, description: 'Usuario no tiene test vocacional completado.' })
-    getRecommendations(@Request() req) {
+    getRecommendations(
+        @Request() req,
+        @Query('region') region?: string // <-- Recibimos el parámetro opcional
+    ) {
         const userId = req.user.sub;
-        return this.universitySearchService.getRecommendationsForUser(userId);
+        // Si no envían región, usamos 'Nacional' por defecto
+        return this.universitySearchService.getRecommendationsForUser(userId, region || 'Nacional');
     }
 }

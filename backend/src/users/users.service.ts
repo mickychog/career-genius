@@ -6,6 +6,15 @@ import { CreateUserDto } from '../auth/dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { TestSession } from '../vocational-test/schemas/test-session.schema'; 
 
+export interface DashboardSuggestion {
+    id: number;
+    title: string;
+    type: string;
+    image: string;
+    action: string;
+}
+
+
 @Injectable()
 export class UsersService {
     constructor(@InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -59,73 +68,96 @@ export class UsersService {
     // --- ESTADÍSTICAS DEL DASHBOARD ACTUALIZADAS ---
     async getUserDashboardStats(userId: string) {
         const user = await this.userModel.findById(userId).select('-password').exec();
+        if (!user) throw new NotFoundException('Usuario no encontrado.');
 
-        if (!user) {
-            throw new NotFoundException('Usuario no encontrado.');
-        }
-
-        // 1. Calcular Progreso del Perfil
-        const requiredProfileFields = ['name', 'headline', 'location', 'birthDate', 'phone'];
-        let completedProfileFields = 0;
-
+        // 1. Progreso Perfil
+        const requiredProfileFields = ['name', 'headline', 'location', 'birthDate', 'phone', 'gender'];
+        let filledFields = 0;
         requiredProfileFields.forEach(field => {
-            if (user.get(field)) completedProfileFields++;
+            if (user.get(field) && user.get(field) !== '') filledFields++;
         });
+        const profileCompletion = Math.round((filledFields / requiredProfileFields.length) * 100);
 
-        const profileCompletion = Math.round((completedProfileFields / requiredProfileFields.length) * 100);
+        // 2. Búsqueda Inteligente de Sesiones
 
-        // 2. Obtener Estado del Test Vocacional
-        const lastSession = await this.testSessionModel
-            .findOne({ user: userId })
+        // A. Buscar la última sesión COMPLETADA (Para mostrar datos históricos)
+        const lastCompletedSession = await this.testSessionModel
+            .findOne({ user: userId, isCompleted: true })
             .sort({ createdAt: -1 })
             .exec();
 
-        const testCompleted = lastSession?.isCompleted || false;
-        const careerSelected = lastSession?.selectedCareer || null;
+        // B. Buscar si hay una sesión ACTIVA (En progreso)
+        const activeSession = await this.testSessionModel
+            .findOne({ user: userId, isCompleted: false })
+            .sort({ createdAt: -1 })
+            .exec();
 
-        // 3. Progreso General
+        // Lógica Híbrida:
+        // - "testCompleted" es true si ALGUNA VEZ completó un test (para no bloquear el dashboard).
+        const hasEverCompletedTest = !!lastCompletedSession;
+
+        // - Datos a mostrar (Universidades, Carrera, Skills): Usamos los de la última completada.
+        const careerSelected = lastCompletedSession?.selectedCareer || null;
+        const universityRecs = lastCompletedSession?.savedUniversities?.length || 0;
+        const skillsCount = lastCompletedSession?.savedCourses?.length || 0;
+        const sessionIdResult = lastCompletedSession?._id || null;
+
+
+        // 3. Progreso General (Lógica)
+        let milestones = 0;
         const totalMilestones = 4;
-        let milestonesCompleted = 0;
-        if (profileCompletion >= 75) milestonesCompleted++;
-        if (testCompleted) milestonesCompleted++;
-        if (careerSelected) milestonesCompleted++;
-        if (lastSession?.analysisReport) milestonesCompleted++;
+        if (profileCompletion >= 80) milestones++;
+        if (hasEverCompletedTest) milestones++; // Cuenta si ya completó al menos uno
+        if (universityRecs > 0) milestones++;
+        if (skillsCount > 0) milestones++; 
+        
+        const overallProgress = Math.round((milestones / totalMilestones) * 100);
 
-        const overallProgress = Math.round((milestonesCompleted / totalMilestones) * 100);
+        const aptitudeScore = '-';
 
-        // 4. Generar Sugerencias Dinámicas (Simulado para el ejemplo)
-        // En un futuro, esto podría venir de la IA o de una base de datos de recursos
-        const suggestions = [
-            {
-                id: 1,
-                title: careerSelected ? `Intro a ${careerSelected}` : "Descubre tu vocación",
-                type: "Curso Gratuito",
-                image: "📚"
-            },
-            {
-                id: 2,
-                title: "Webinar: Futuro Laboral en Bolivia",
-                type: "Evento Online",
-                image: "🇧🇴"
-            },
-            {
-                id: 3,
-                title: "Guía de Becas Universitarias 2025",
-                type: "Artículo",
-                image: "🎓"
-            }
+        const importantDates = [
+            { date: "15 ENE", event: "Inscripciones UMSA (PSA)" },
+            { date: "02 FEB", event: "Examen UCB (La Paz)" },
+            { date: "20 FEB", event: "Inicio Clases UPB" }
         ];
 
+        // 4. Sugerencias
+        const suggestions: DashboardSuggestion[] = [];
+        if (profileCompletion < 100) {
+            suggestions.push({ id: 1, title: "Completa tu Perfil", type: "Acción", image: "👤", action: "/dashboard/profile" });
+        }
+
+        // Lógica de sugerencia de test:
+        if (activeSession) {
+            // CASO 1: Hay un test en progreso (nuevo o retomado)
+            suggestions.push({ id: 2, title: "Continuar Test en Curso", type: "En Progreso", image: "⏳", action: "/dashboard/vocational-test" });
+        } else if (!hasEverCompletedTest) {
+            // CASO 2: Nunca hizo un test
+            suggestions.push({ id: 2, title: "Descubre tu Vocación", type: "Test", image: "🎓", action: "/dashboard/vocational-test" });
+        } else {
+            // CASO 3: Ya terminó uno, pero no tiene uno activo. Le damos opción de hacer otro.
+            suggestions.push({ id: 2, title: "Refinar Perfil (Nuevo Test)", type: "Reiniciar", image: "🔄", action: "/dashboard/vocational-test" });
+        }
+
+        if (hasEverCompletedTest && !careerSelected) {
+            suggestions.push({ id: 3, title: "Elige tu Carrera", type: "Resultados", image: "⭐", action: `/dashboard/results/${sessionIdResult}` });
+        } else if (hasEverCompletedTest) {
+            if (universityRecs === 0) suggestions.push({ id: 4, title: `Universidades para ${careerSelected}`, type: "Búsqueda", image: "🏫", action: "/dashboard/university-search" });
+            if (skillsCount === 0) suggestions.push({ id: 5, title: "Cursos Preparatorios", type: "Educación", image: "📚", action: "/dashboard/skills-development" });
+        }
+
         return {
-            userName: user.name,                // <--- ENVIAMOS EL NOMBRE CORRECTO
-            profileCompletion: profileCompletion,
-            testCompleted: testCompleted,
+            userName: user.name,
+            profileCompletion,
+            testCompleted: hasEverCompletedTest,
             careerFocus: careerSelected,
-            universityRecs: careerSelected ? 4 : 0, // Número realista                         
-            skillsCount: 5,
-            aptitudeScore: testCompleted ? 'B+' : '-',
-            overallProgress: overallProgress,
-            suggestions: suggestions            // <--- NUEVO CAMPO
+            universityRecs,
+            skillsCount,
+            aptitudeScore,
+            overallProgress,
+            suggestions,
+            importantDates
         };
+
     }
 }

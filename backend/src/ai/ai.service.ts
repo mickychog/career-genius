@@ -184,14 +184,19 @@ ${answersJson}
         }
     }
 
-    async getUniversityRecommendations(careerName: string): Promise<UniversityRecommendation[]> {
-        this.logger.log(`Buscando universidades en Bolivia para: ${careerName}`);
+    async getUniversityRecommendations(careerName: string, region: string = 'Nacional'): Promise<UniversityRecommendation[]> {
+        this.logger.log(`Buscando universidades para: ${careerName} en ${region}`);
+
+        const regionContext = region === 'Nacional'
+            ? "en toda Bolivia (prioriza las mejores del país)."
+            : `específicamente en el departamento de **${region}** o ciudades muy cercanas. Si no hay buenas opciones ahí, sugiere las mejores del país indicando que son de otro lugar.`;
+
 
         const prompt = `
 Actúa como un experto en educación superior en **Bolivia**.
 El usuario quiere estudiar: **"${careerName}"**.
 
-Recomienda las 6 mejores opciones (Universidades Públicas, Privadas o Institutos Técnicos) en Bolivia (Ciudades capitales o provincias) para esta carrera específica.
+Recomienda las 6 mejores opciones (Universidades Públicas, Privadas o Institutos Técnicos) en ${regionContext} para esta carrera específica.
 
 Provee información detallada y realista. Si la carrera es técnica, prioriza institutos. Si es académica, universidades.
 

@@ -5,17 +5,24 @@ import apiClient from "../services/api";
 import { toast } from "react-toastify";
 import "./DashboardPage.css";
 
+// Interfaz para fechas
+interface ImportantDate {
+  date: string;
+  event: string;
+}
+
 // Definición de una sugerencia (para el carrusel)
 interface Suggestion {
   id: number;
   title: string;
   type: string;
   image: string;
+  action: string;
 }
 
 // Interfaz actualizada con todos los datos nuevos
 interface DashboardStats {
-  userName: string; // <--- Nombre real desde la DB
+  userName: string;
   profileCompletion: number;
   testCompleted: boolean;
   careerFocus: string | null;
@@ -23,7 +30,8 @@ interface DashboardStats {
   skillsCount: number;
   aptitudeScore: string;
   overallProgress: number;
-  suggestions: Suggestion[]; // <--- Lista de sugerencias
+  suggestions: Suggestion[];
+  importantDates: ImportantDate[];
 }
 
 const DashboardPage = () => {
@@ -37,22 +45,13 @@ const DashboardPage = () => {
     const fetchStats = async () => {
       try {
         const { data } = await apiClient.get("/users/dashboard-stats");
+        // Debug: Ver qué llega realmente
+        console.log("Stats recibidos:", data);
         setStats(data);
       } catch (error) {
         console.error("Error al cargar estadísticas:", error);
         toast.error("Error al cargar el progreso.");
-        // Fallback visual
-        setStats({
-          userName: user?.name || "Usuario",
-          profileCompletion: 0,
-          testCompleted: false,
-          careerFocus: null,
-          universityRecs: 0,
-          skillsCount: 0,
-          aptitudeScore: "-",
-          overallProgress: 0,
-          suggestions: [],
-        });
+        setStats(null);
       } finally {
         setLoading(false);
       }
@@ -70,48 +69,58 @@ const DashboardPage = () => {
     }
   };
 
+  // ✅ Manejador de navegación para las tarjetas
+  const handleSuggestionClick = (action: string) => {
+    if (!action || action === "#") return;
+
+    if (action.startsWith("http")) {
+      window.open(action, "_blank"); // Enlace externo
+    } else {
+      navigate(action); // Ruta interna
+    }
+  };
+
   if (loading)
     return (
       <div className="dashboard-page">
         <h2>Cargando tu panel...</h2>
       </div>
     );
-  if (!stats)
+
+  if (!stats) {
     return (
-      <div className="dashboard-page">
-        <h2>Error de carga.</h2>
+      <div className="dashboard-page" style={{ textAlign: "center" }}>
+        <h2>No se pudo cargar la información.</h2>
+        <button
+          className="btn-primary"
+          onClick={() => window.location.reload()}
+        >
+          Reintentar
+        </button>
       </div>
     );
+  }
 
   const careerFocus = stats.careerFocus || "N/A (Inicia el Test)";
-
-  // Priorizamos el nombre que viene fresco de la DB
   const displayName = stats.userName || user?.name || "Usuario";
 
   return (
     <div className="dashboard-page">
       <div className="dashboard-header">
         <div>
-          {/* --- AQUÍ ESTÁ EL SALUDO CON EL NOMBRE REAL --- */}
           <h2>¡Hola, {displayName}! 👋</h2>
           <p className="header-subtitle">
             Aquí tienes el resumen de tu futuro profesional.
           </p>
         </div>
-        <Link
-          to="/dashboard/profile"
-          className="btn-primary"
-          style={{ width: "auto" }}
-        >
+        <Link to="/profile" className="btn-primary" style={{ width: "auto" }}>
           Mi Perfil
         </Link>
       </div>
 
-      {/* Layout de Grid para columnas */}
       <div className="dashboard-layout-grid">
-        {/* COLUMNA IZQUIERDA (Principal) */}
+        {/* COLUMNA IZQUIERDA */}
         <div className="main-column">
-          {/* Tarjeta de Foco (Estado del Test) */}
           <div className="stat-card focus-card">
             <div className="focus-header">
               <div className="stat-label">Tu Objetivo Profesional</div>
@@ -120,7 +129,7 @@ const DashboardPage = () => {
                   stats.testCompleted ? "done" : "pending"
                 }`}
               >
-                {stats.testCompleted ? "En Curso" : "Pendiente"}
+                {stats.testCompleted ? "Definido" : "Pendiente"}
               </div>
             </div>
             <div className="stat-value focus-value">{careerFocus}</div>
@@ -141,7 +150,6 @@ const DashboardPage = () => {
             </button>
           </div>
 
-          {/* Grid de Mini Estadísticas */}
           <div className="stats-grid">
             <div className="stat-card mini-stat">
               <div className="stat-icon">👤</div>
@@ -166,15 +174,26 @@ const DashboardPage = () => {
                 <div className="stat-label">Recursos</div>
               </div>
             </div>
+
+            <div className="stat-card mini-stat">
+              <div className="stat-icon">🧩</div>
+              <div className="stat-info">
+                <div className="stat-value">{stats.aptitudeScore}</div>
+                <div className="stat-label">Aptitud</div>
+              </div>
+            </div>
           </div>
 
-          {/* --- AQUÍ ESTÁ LA SECCIÓN DE CARRUSEL DE SUGERENCIAS --- */}
           <div className="section suggestions-section">
             <h3>💡 Recomendado para ti</h3>
             <div className="suggestions-carousel">
               {stats.suggestions && stats.suggestions.length > 0 ? (
                 stats.suggestions.map((item) => (
-                  <div key={item.id} className="suggestion-card">
+                  <div
+                    key={item.id}
+                    className="suggestion-card"
+                    onClick={() => handleSuggestionClick(item.action)}
+                  >
                     <div className="suggestion-icon">{item.image}</div>
                     <div className="suggestion-content">
                       <span className="suggestion-type">{item.type}</span>
@@ -184,19 +203,23 @@ const DashboardPage = () => {
                 ))
               ) : (
                 <div className="suggestion-card">
-                  <p>Completa tu perfil para ver sugerencias.</p>
+                  <p>¡Todo al día!</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* COLUMNA DERECHA (Lateral) */}
+        {/* COLUMNA DERECHA */}
         <div className="side-column">
-          {/* Progreso General */}
           <div className="stat-card progress-card">
             <h3>Progreso Global</h3>
-            <div className="circular-progress">
+            <div
+              className="circular-progress"
+              style={{
+                background: `conic-gradient(#667eea ${stats.overallProgress}%, #e2e8f0 0deg)`,
+              }}
+            >
               <div className="circle-inner">
                 <span>{stats.overallProgress}%</span>
               </div>
@@ -209,22 +232,21 @@ const DashboardPage = () => {
             </p>
           </div>
 
-          {/* --- AQUÍ ESTÁ EL SIDEBAR CON FECHAS IMPORTANTES --- */}
           <div className="stat-card dates-card">
             <h3>📅 Fechas Clave (Bolivia)</h3>
             <ul className="dates-list">
-              <li>
-                <span className="date">15 ENE</span>
-                <span className="event">Inscripciones UMSA (PSA)</span>
-              </li>
-              <li>
-                <span className="date">02 FEB</span>
-                <span className="event">Examen UCB (La Paz)</span>
-              </li>
-              <li>
-                <span className="date">20 FEB</span>
-                <span className="event">Inicio Clases UPB</span>
-              </li>
+              {stats.importantDates && stats.importantDates.length > 0 ? (
+                stats.importantDates.map((item, idx) => (
+                  <li key={idx}>
+                    <span className="date">{item.date}</span>
+                    <span className="event">{item.event}</span>
+                  </li>
+                ))
+              ) : (
+                <li>
+                  <span className="event">No hay fechas próximas</span>
+                </li>
+              )}
             </ul>
             <button className="btn-text">Ver calendario completo</button>
           </div>

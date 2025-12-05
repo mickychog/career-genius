@@ -22,6 +22,19 @@ interface University {
   details: UniversityDetail;
 }
 
+const DEPARTAMENTOS = [
+  "Bolivia",
+  "La Paz",
+  "Santa Cruz",
+  "Cochabamba",
+  "Oruro",
+  "Potosí",
+  "Chuquisaca",
+  "Tarija",
+  "Beni",
+  "Pando",
+];
+
 const UniversitySearchPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -30,34 +43,50 @@ const UniversitySearchPage = () => {
   const [noTestFound, setNoTestFound] = useState(false);
 
   // Estado del Modal
+  const [selectedRegion, setSelectedRegion] = useState("Bolivia");
   const [selectedUni, setSelectedUni] = useState<University | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await apiClient.get(
-          "/university-search/recommendations"
-        );
-        setCareerName(response.data.career);
-        setUniversities(response.data.recommendations);
-      } catch (error: any) {
-        if (error.response && error.response.status === 404) {
-          setNoTestFound(true);
-        } else {
-          toast.error("Error al buscar universidades. Intenta más tarde.");
-          console.error(error);
+  // Función para cargar datos
+  const fetchUniversities = async (region: string) => {
+    setLoading(true);
+    try {
+      // Enviamos la región como query param
+      const response = await apiClient.get(
+        "/university-search/recommendations",
+        {
+          params: { region },
         }
-      } finally {
-        setLoading(false);
+      );
+      setCareerName(response.data.career);
+      setUniversities(response.data.recommendations);
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        setNoTestFound(true);
+      } else {
+        toast.error("Error al buscar universidades. Intenta más tarde.");
+        console.error(error);
       }
-    };
-    fetchData();
-  }, []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carga inicial
+  useEffect(() => {
+    fetchUniversities(selectedRegion);
+  }, []); // Solo al montar, usa el estado inicial 'Bolivia'
+
+  // Manejador del cambio de select
+  const handleRegionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRegion = e.target.value;
+    setSelectedRegion(newRegion);
+    fetchUniversities(newRegion); // Recargar datos con la nueva región
+  };
 
   if (loading)
     return (
       <div className="results-loading">
-        🔍 Buscando las mejores opciones en Bolivia...
+        🔍 Buscando las mejores opciones en {selectedRegion}...
       </div>
     );
 
@@ -92,6 +121,22 @@ const UniversitySearchPage = () => {
           <span className="career-highlight">{careerName}</span>
         </h2>
         <p>Las mejores opciones educativas en Bolivia seleccionadas para ti.</p>
+        {/* SELECTOR DE DEPARTAMENTO */}
+        <div className="filter-container">
+          <label htmlFor="region-select">Ubicación:</label>
+          <select
+            id="region-select"
+            value={selectedRegion}
+            onChange={handleRegionChange}
+            className="region-select"
+          >
+            {DEPARTAMENTOS.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="uni-grid">

@@ -9,7 +9,7 @@ import { SubmitAnswerDto } from './dto/submit-answer.dto';
 export interface TestQuestionDto {
     _id: string;
     questionText: string;
-    options: { text: string; originalIndex: number }[]; 
+    options: { text: string; originalIndex: number }[];
     type: string;
 }
 
@@ -17,6 +17,9 @@ export interface StartTestResponse {
     sessionId: string;
     questions: TestQuestionDto[];
     currentPhase: string;
+    answersCount: number;
+    userAge?: number;
+    userGender?: string;
 }
 
 @Injectable()
@@ -202,6 +205,10 @@ export class VocationalTestService {
 
         if (!questionDoc) throw new BadRequestException('Pregunta no encontrada.');
 
+        // --- LOG DEPURACIÓN: RESPUESTA RECIBIDA ---
+        this.logger.log(`\n---> 🟢 Respondiendo Pregunta: "${questionDoc.questionText.substring(0, 40)}..."`);
+
+
         const newAnswer: UserAnswer = {
             question: new Types.ObjectId(questionIdStr) as any,
             selectedOptionIndex: dto.selectedOptionIndex
@@ -210,27 +217,48 @@ export class VocationalTestService {
         if (!session.scores) session.scores = new Map<string, number>();
         if (!(session.scores instanceof Map)) session.scores = new Map(Object.entries(session.scores));
 
-        // Puntuación Inteligente
-        // Si es GENERAL: Suma puntos según el mapeo
-        if (questionDoc.type === QuestionType.GENERAL) {
-            const selectedOption = questionDoc.options[dto.selectedOptionIndex];
-            // Solo sumar si NO es la opción "Ninguna" (que no tiene pointsTo o es NINGUNA)
-            if (selectedOption && selectedOption.pointsTo && selectedOption.pointsTo !== 'NINGUNA') {
-                const area = selectedOption.pointsTo;
-                const currentScore = session.scores.get(area) || 0;
-                session.scores.set(area, currentScore + 1);
+
+        // --- LOGICA DE PUNTUACIÓN ---
+        if (questionDoc.type !== QuestionType.CONFIRMATION) {
+            let pointArea: string | undefined = undefined;
+            if (questionDoc.type === QuestionType.GENERAL) {
+                // Obtenemos la opción ORIGINAL usando el índice recibido
+                const selectedOption = questionDoc.options[dto.selectedOptionIndex];
+                pointArea = selectedOption?.pointsTo;
+
+                this.logger.log(`[GENERAL] Opción ${dto.selectedOptionIndex}: "${selectedOption?.text || '?'}" --> Suma a: ${pointArea}`);
+
+            } else if (questionDoc.type === QuestionType.SPECIFIC) {
+                pointArea = questionDoc.area;
+                this.logger.log(`[SPECIFIC] Pregunta de área: ${pointArea}. Opción elegida: ${dto.selectedOptionIndex}`);
+
+                // Si elige la opción 4 (o superior), asumimos que es la opción de "Ninguna" o descarte
+                if (dto.selectedOptionIndex >= 4) {
+                    this.logger.log(`   -> Opción de descarte (>=4). No se suman puntos.`);
+                    pointArea = undefined;
+                }
+            }
+
+            if (pointArea && pointArea !== 'NINGUNA') {
+                const currentScore = session.scores.get(pointArea) || 0;
+                const newScore = currentScore + 1;
+                session.scores.set(pointArea, newScore);
+                this.logger.log(`   ✅ Puntos sumados a ${pointArea}. Total actual: ${newScore}`);
             }
         }
-        // Si es ESPECIFICA: Suma puntos al área de la pregunta
-        else if (questionDoc.type === QuestionType.SPECIFIC) {
-            // Si elige la opción 4 ("Ninguna"), NO sumamos puntos
-            // Asumimos que índices 0,1,2,3 son positivos, 4 es negativo/neutro
-            if (dto.selectedOptionIndex < 4) {
-                const area = questionDoc.area;
-                const currentScore = session.scores.get(area) || 0;
-                session.scores.set(area, currentScore + 1);
-            }
+
+        // --- LOG DEPURACIÓN: TABLA DE PUNTUACIONES ---
+        this.logger.log(`     📊 === PUNTAJES ACTUALES ===`);
+        const scoresArray = Array.from(session.scores.entries()).sort((a, b) => b[1] - a[1]);
+        if (scoresArray.length === 0) {
+            this.logger.log(`         (Sin puntajes aún)`);
+        } else {
+            scoresArray.forEach(([area, score]) => {
+                this.logger.log(`         ${area}: ${score}`);
+            });
+            this.logger.log(`     🏆 LIDER ACTUAL: ${scoresArray[0][0]}`);
         }
+        this.logger.log(`     ============================\n`);
 
         const existingIdx = session.answers.findIndex(a => a.question.toString() === questionIdStr);
         if (existingIdx >= 0) session.answers[existingIdx] = newAnswer;
@@ -263,16 +291,12 @@ export class VocationalTestService {
 
     private async transitionToSpecificPhase(session: TestSession & Document) {
         const scoresArray = Array.from(session.scores.entries()).sort((a, b) => b[1] - a[1]);
-        // Tomamos las 2 áreas con más puntaje. Si hubo empate o ceros, tomamos defaults.
         const topAreas = scoresArray.slice(0, 2).map(e => e[0]);
-
-        // Fallbacks si el usuario puso "Ninguna" a todo
         if (topAreas.length === 0) topAreas.push(VocationalArea.TEC_INGENIERIA);
-        if (topAreas.length === 1) topAreas.push(VocationalArea.NEGOCIOS_ECONOMIA); // Default popular
 
         session.activeBranches = topAreas;
+        this.logger.log(`>> Transición a SPECIFIC. Ramas activas: ${topAreas.join(', ')}`);
 
-        // Buscamos preguntas: 3 de cada área top = 6 preguntas
         const specificQuestions = await this.questionModel.aggregate([
             { $match: { type: 'SPECIFIC', area: { $in: topAreas } } },
             { $sample: { size: this.QUESTIONS_PHASE_2_SPECIFIC } }
@@ -288,6 +312,10 @@ export class VocationalTestService {
         // El ganador absoluto
         const winnerArea = scoresArray[0][0] || VocationalArea.TEC_INGENIERIA;
 
+        // Log especial de transición
+        this.logger.log(`>> Ganador Absoluto para CONFIRMATION: ${winnerArea}`);
+
+
         const confirmationQuestions = await this.questionModel.aggregate([
             { $match: { type: 'CONFIRMATION', area: winnerArea } },
             { $sample: { size: this.QUESTIONS_PHASE_3_CONFIRMATION } }
@@ -297,7 +325,7 @@ export class VocationalTestService {
         session.questions.push(...newIds);
         session.currentPhase = 'CONFIRMATION';
     }
-    
+
     async finishTest(sessionId: string, userId: string): Promise<TestSession> {
         const session = await this.testSessionModel.findById(sessionId)
             .populate('answers.question')
@@ -401,7 +429,10 @@ export class VocationalTestService {
         return {
             sessionId: String(session._id),
             currentPhase: session.currentPhase,
-            questions: mappedQuestions
+            questions: mappedQuestions,
+            answersCount: session.answers.length,
+            userAge: session.userAge,
+            userGender: session.userGender
         };
     }
 
